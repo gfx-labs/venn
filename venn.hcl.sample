@@ -1,0 +1,92 @@
+bind = "localhost:8545"
+
+redis {
+  // uri = "redis://localhost:6379"
+  uri = "embedded"
+  namespace = "venn-dev"
+}
+
+chain "ethereum" {
+  id = 1
+  remote "brilliant" {
+    url = "https://mainnet-rpc.apiary.software"
+    filters = ["geth","trace"]
+  }
+}
+
+chain "polygon" {
+  id = 137
+  remote "ankr" {
+    url = "https://rpc.ankr.com/polygon"
+    filters = ["geth"]
+  }
+}
+
+filter "geth" {
+  methods = {
+    "debug_getBadBlocks": true,
+    "debug_getRawBlock": true,
+    "debug_getRawHeader": true,
+    "debug_getRawReceipts": true,
+    "debug_getRawTransaction": true,
+    "eth_accounts": true,
+    "eth_blockNumber": true,
+    "eth_call": true,
+    "eth_coinbase": true,
+    "eth_createAccessList": true,
+    "eth_estimateGas": true,
+    "eth_feeHistory": true,
+    "eth_gasPrice": true,
+    "eth_getBalance": true,
+    "eth_getBlockByHash": true,
+    "eth_getBlockByNumber": true,
+    "eth_getBlockReceipts": true,
+    "eth_getBlockTransactionCountByHash": true,
+    "eth_getBlockTransactionCountByNumber": true,
+    "eth_getCode": true,
+    "eth_getLogs": true,
+    "eth_getProof": true,
+    "eth_getStorageAt": true,
+    "eth_getTransactionByBlockHashAndIndex": true,
+    "eth_getTransactionByHash": true,
+    "eth_getTransactionCount": true,
+    "eth_getTransactionReceipt": true,
+    "eth_getUncleCountByBlockHash": true,
+    "eth_getUncleCountByBlockNumber": true,
+    "eth_maxPriorityFeePerGas": true,
+    "eth_sendRawTransaction": true,
+
+  }
+}
+
+filter "trace" {
+  methods = {
+    "trace_call": true,
+    "trace_callMany": true,
+    "trace_rawTransaction": true,
+    "trace_replaceBlockTransactions": true,
+    "trace_replayTransaction": true,
+    "trace_block": true,
+    "trace_filter": true,
+    "trace_get": true,
+    "trace_transaction": true,
+  }
+}
+
+filter "ots" {
+  methods = {
+    "ots_getApiLevel": true,
+    "ots_getInternalOperations": true,
+    "ots_hasCode": true,
+    "ots_traceTransaction": true,
+    "ots_getTransactionError": true,
+    "ots_getBlockDetails": true,
+    "ots_getBlockTransactions": true,
+    "ots_searchTransactionsBefore": true,
+    "ots_searchTransactionsAfter": true,
+    "ots_getTransactionBySenderAndNonce": true,
+    "ots_getContractCreator": true,
+  }
+}
+
+

@@ -1,0 +1,3 @@
+include:
+ - project: 'templates/ci'
+   file: "/kaniko.gitlab-ci.yml"
