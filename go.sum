@@ -2,6 +2,8 @@ gfx.cafe/gfx/chain-config/dist/networks v1.1.132 h1:ybZbGXBzPId4mEKQrxl5sM3zq07k
 gfx.cafe/gfx/chain-config/dist/networks v1.1.132/go.mod h1:ghQlHRFERdTnpnoDYQAr9w1MZyOEvrism2nKJRqIz6c=
 gfx.cafe/gfx/chain-config/dist/networks v1.1.133 h1:YpLbWgEZxI+IFApYn1Algsh7FKcViiqGZ6HzbSfppv8=
 gfx.cafe/gfx/chain-config/dist/networks v1.1.133/go.mod h1:ghQlHRFERdTnpnoDYQAr9w1MZyOEvrism2nKJRqIz6c=
+gfx.cafe/gfx/chain-config/dist/networks v1.1.141 h1:mahG89ataXmOuEgXwaQyZCOz6zfBfaqiqgymbcQ/ja0=
+gfx.cafe/gfx/chain-config/dist/networks v1.1.141/go.mod h1:ghQlHRFERdTnpnoDYQAr9w1MZyOEvrism2nKJRqIz6c=
 gfx.cafe/open/gotoprom v0.0.2 h1:LNypdpXFYSMoTewDSokZsOiZKcbewEVbOpkFUoQwnkA=
 gfx.cafe/open/gotoprom v0.0.2/go.mod h1:osabAhqSCG+hqtBeUTjFMbzqB2kZFK0SpRYRqmS5Of4=
 gfx.cafe/open/gun v0.0.3 h1:gHED0923ITIb+jD/8+g6sahK/7w4E722p9QwnYOeUmU=
@@ -238,6 +240,8 @@ go.uber.org/zap v1.27.0/go.mod h1:GB2qFLM7cTU87MWRP2mPIjqfIDnGu+VIO4V/SdhGo2E=
 golang.org/x/crypto v0.0.0-20180904163835-0709b304e793/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=
 golang.org/x/crypto v0.30.0 h1:RwoQn3GkWiMkzlX562cLB7OxWvjH1L8xutO2WoJcRoY=
 golang.org/x/crypto v0.30.0/go.mod h1:kDsLvtWBEx7MV9tJOj9bnXsPbxwJQ6csT/x4KIN4Ssk=
+golang.org/x/crypto v0.31.0 h1:ihbySMvVjLAeSH1IbfcRTkD/iNscyz8rGzjF/E5hV6U=
+golang.org/x/crypto v0.31.0/go.mod h1:kDsLvtWBEx7MV9tJOj9bnXsPbxwJQ6csT/x4KIN4Ssk=
 golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 h1:yixxcjnhBmY0nkL253HFVIm0JsFHwrHdT3Yh6szTnfY=
 golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8/go.mod h1:jj3sYF3dwk5D+ghuXyeI3r5MFf+NT2An6/9dOA95KSI=
 golang.org/x/net v0.0.0-20181114220301-adae6a3d119a/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
