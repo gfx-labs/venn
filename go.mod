@@ -5,7 +5,7 @@ go 1.22.0
 toolchain go1.22.4
 
 require (
-	gfx.cafe/gfx/chain-config/dist/networks v1.1.141
+	gfx.cafe/gfx/chain-config/dist/networks v1.1.144
 	gfx.cafe/open/gotoprom v0.0.2
 	gfx.cafe/open/gun v0.0.3
 	gfx.cafe/open/jrpc v0.5.3
@@ -38,7 +38,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
 	golang.org/x/sync v0.10.0
-	golang.org/x/sys v0.28.0
+	golang.org/x/sys v0.29.0
 	golang.org/x/time v0.5.0
 )
 
@@ -86,7 +86,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.uber.org/dig v1.17.1 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
+	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240701130421-f6361c86f094 // indirect
