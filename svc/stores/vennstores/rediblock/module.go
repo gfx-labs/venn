@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 
 	"gfx.cafe/util/go/generic"
 	"github.com/ethereum/go-ethereum/common"
@@ -222,7 +223,7 @@ func (s *Rediblock) Put(ctx context.Context, typ blockstore.EntryType, entries .
 	)
 
 	values = append(values,
-		s.chain.BlockTimeSeconds,
+		int(math.Max(1, s.chain.BlockTimeSeconds)),
 	)
 
 	var reorgKeys []string
