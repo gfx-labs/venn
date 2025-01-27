@@ -82,14 +82,22 @@ func (T *Doctor) check() {
 
 	T.mu.Lock()
 	defer T.mu.Unlock()
-	T.healthy = err == nil && int(res) == T.chainId
-	if !T.healthy {
-		T.log.Error("remote failed health check", "error", err)
+	func() {
+		switch {
+		default:
+			T.healthy = true
+			T.interval = min(T.maxInterval, T.interval*2)
+			T.timer.Reset(T.interval)
+			return
+		case int(res) != T.chainId:
+			T.log.Error("remote failed health check", "expected id", T.chainId, "got", int(res))
+		case err != nil:
+			T.log.Error("remote failed health check", "error", err)
+		}
+		T.healthy = false
 		T.interval = T.minInterval
 		T.timer.Reset(T.interval)
-	}
-	T.interval = min(T.maxInterval, T.interval*2)
-	T.timer.Reset(T.interval)
+	}()
 }
 
 func (T *Doctor) canUse() bool {

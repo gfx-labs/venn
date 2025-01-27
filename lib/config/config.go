@@ -6,8 +6,6 @@ import (
 	"net/url"
 	"os"
 	"time"
-
-	"gfx.cafe/gfx/chain-config/dist/networks"
 )
 
 type EnvExpandable string
@@ -108,12 +106,13 @@ type Chain struct {
 	Name string `hcl:"name,label"`
 	Id   int    `hcl:"id"`
 
-	Network            *networks.Network `hcl:"-"`
-	HeadOracles        []*HeadOracles    `hcl:"oracles,block"`
-	Remotes            []*Remote         `hcl:"remote,block"`
-	Stalk              *bool             `hcl:"stalk,optional"`
-	ParsedStalk        bool              `hcl:"-"`
-	ForgeBlockReceipts bool              `hcl:"forge_block_receipts,optional"`
+	BlockTimeSeconds float64 `hcl:"block_time_seconds"`
+
+	HeadOracles        []*HeadOracles `hcl:"oracles,block"`
+	Remotes            []*Remote      `hcl:"remote,block"`
+	Stalk              *bool          `hcl:"stalk,optional"`
+	ParsedStalk        bool           `hcl:"-"`
+	ForgeBlockReceipts bool           `hcl:"forge_block_receipts,optional"`
 }
 
 type HeadOracles struct {

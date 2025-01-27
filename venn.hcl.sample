@@ -8,6 +8,7 @@ redis {
 
 chain "ethereum" {
   id = 1
+  block_time_seconds = 12
   remote "brilliant" {
     url = "https://mainnet-rpc.apiary.software"
     filters = ["geth","trace"]
@@ -16,6 +17,7 @@ chain "ethereum" {
 
 chain "polygon" {
   id = 137
+  block_time_seconds = 2
   remote "ankr" {
     url = "https://rpc.ankr.com/polygon"
     filters = ["geth"]

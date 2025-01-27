@@ -73,7 +73,6 @@ func (T *Backer) ok() {
 func (T *Backer) limit() {
 	T.mu.Lock()
 	defer T.mu.Unlock()
-
 	if !T.happy {
 		return
 	}

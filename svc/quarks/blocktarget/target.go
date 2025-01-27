@@ -34,7 +34,7 @@ func New(p Params) (r Result, err error) {
 	o.oracles = make(map[string]oracles.Oracle[int])
 	for _, c := range p.Chains {
 		chainOracles := []blockoracle.BlockOracle{}
-		ttl := max(1*time.Second, time.Duration(float64(c.Network.BlockTimeSeconds)*float64(time.Second)))
+		ttl := max(1*time.Second, time.Duration(float64(c.BlockTimeSeconds)*float64(time.Second)))
 		for _, v := range c.HeadOracles {
 			baseOracle, err := blockoracle.HttpJsonOracle(string(v.Url), v.CelExpr)
 			if err != nil {

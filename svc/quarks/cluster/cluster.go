@@ -2,10 +2,11 @@ package cluster
 
 import (
 	"context"
-	"gfx.cafe/gfx/venn/svc/middlewares/blockLookBack"
-	"gfx.cafe/gfx/venn/svc/stores/headstores/redihead"
 	"log/slog"
 	"time"
+
+	"gfx.cafe/gfx/venn/svc/middlewares/blockLookBack"
+	"gfx.cafe/gfx/venn/svc/stores/headstores/redihead"
 
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/contrib/codecs/http"
@@ -100,7 +101,7 @@ func New(params Params) (r Result, err error) {
 
 						remote = callcenter.NewValidator(
 							remote,
-							max(time.Minute, time.Duration(float64(time.Second)*2*cfg.Chain.Network.BlockTimeSeconds)),
+							max(time.Minute, time.Duration(float64(time.Second)*2*cfg.Chain.BlockTimeSeconds)),
 						)
 
 						remote = callcenter.NewDoctor(

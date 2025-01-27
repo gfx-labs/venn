@@ -222,7 +222,7 @@ func (s *Rediblock) Put(ctx context.Context, typ blockstore.EntryType, entries .
 	)
 
 	values = append(values,
-		s.chain.Network.BlockTimeSeconds,
+		s.chain.BlockTimeSeconds,
 	)
 
 	var reorgKeys []string

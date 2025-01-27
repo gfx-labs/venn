@@ -5,7 +5,6 @@ go 1.22.0
 toolchain go1.22.4
 
 require (
-	gfx.cafe/gfx/chain-config/dist/networks v1.1.144
 	gfx.cafe/open/gotoprom v0.0.2
 	gfx.cafe/open/gun v0.0.3
 	gfx.cafe/open/jrpc v0.5.3

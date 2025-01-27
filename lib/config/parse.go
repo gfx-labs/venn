@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"gfx.cafe/gfx/chain-config/dist/networks"
-
 	"gfx.cafe/gfx/venn/lib/util"
 
 	"github.com/alecthomas/hcl/v2"
@@ -127,12 +125,6 @@ func ParseConfig(datae ...[]byte) (*Config, error) {
 
 	// add all the filters from the presets block to the remotes
 	for _, v := range c.Chains {
-		n, err := networks.NetworkById(v.Id)
-		if err != nil {
-			return nil, err
-		}
-		v.Network = n
-
 		v.ParsedStalk, err = util.CoaFunc(func(v *bool) (bool, error) {
 			return *v, nil
 		}, v.Stalk, true)

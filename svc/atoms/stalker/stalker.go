@@ -106,7 +106,7 @@ func (T *Stalker) start() {
 }
 
 func (T *Stalker) stalk(ctx context.Context) {
-	blockTime := max(time.Second, time.Duration(T.chain.Network.BlockTimeSeconds*float64(time.Second)))
+	blockTime := max(time.Second, time.Duration(T.chain.BlockTimeSeconds*float64(time.Second)))
 	ticker := time.NewTicker(blockTime)
 	defer ticker.Stop()
 	for {
