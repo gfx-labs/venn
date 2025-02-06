@@ -13,6 +13,14 @@ import (
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
 )
 
+type HealthStatus int
+
+const (
+	HealthStatusUnknown   HealthStatus = 0
+	HealthStatusHealthy   HealthStatus = 1
+	HealthStatusUnhealthy HealthStatus = -1
+)
+
 // Doctor runs periodic health checks on the remote, preventing further requests if the health check fails.
 type Doctor struct {
 	ctx context.Context
@@ -27,9 +35,10 @@ type Doctor struct {
 
 	timer *time.Timer
 
-	healthy  bool
-	interval time.Duration
-	mu       sync.Mutex
+	firstCheck sync.WaitGroup
+	health     HealthStatus
+	interval   time.Duration
+	mu         sync.Mutex
 }
 
 func NewDoctor(remote Remote, log *slog.Logger, chainId int, minInterval, maxInterval time.Duration) *Doctor {
@@ -50,6 +59,7 @@ func NewDoctor(remote Remote, log *slog.Logger, chainId int, minInterval, maxInt
 
 		interval: minInterval,
 	}
+	doctor.firstCheck.Add(1)
 
 	go func() {
 		doctor.check()
@@ -63,6 +73,8 @@ func NewDoctor(remote Remote, log *slog.Logger, chainId int, minInterval, maxInt
 func (T *Doctor) loop() {
 	defer T.timer.Stop()
 
+	T.check()
+	T.firstCheck.Done()
 	for {
 		select {
 		case <-T.ctx.Done():
@@ -79,37 +91,44 @@ func (T *Doctor) check() {
 
 	var res hexutil.Uint64
 	err := jrpcutil.Do(ctx, T.remote, &res, "eth_chainId", []any{})
-
 	T.mu.Lock()
 	defer T.mu.Unlock()
 	func() {
 		switch {
+		case err != nil:
+			T.log.Error("remote failed health check", "chain id", T.chainId, "error", err)
+		case int(res) != T.chainId:
+			T.log.Error("remote failed health check", "expected id", T.chainId, "got", int(res))
 		default:
-			T.healthy = true
+			T.health = HealthStatusHealthy
 			T.interval = min(T.maxInterval, T.interval*2)
 			T.timer.Reset(T.interval)
 			return
-		case int(res) != T.chainId:
-			T.log.Error("remote failed health check", "expected id", T.chainId, "got", int(res))
-		case err != nil:
-			T.log.Error("remote failed health check", "error", err)
 		}
-		T.healthy = false
+		T.health = HealthStatusUnhealthy
 		T.interval = T.minInterval
 		T.timer.Reset(T.interval)
 	}()
 }
 
+// canUse will return true if the remote is healthy, false if it is unhealthy, and will block until the first check is complete.
 func (T *Doctor) canUse() bool {
 	T.mu.Lock()
-	defer T.mu.Unlock()
-	if !T.healthy {
+	if T.health == HealthStatusHealthy {
+		T.interval = T.minInterval
+		T.timer.Reset(T.interval)
+		T.mu.Unlock()
+		return true
+	}
+	if T.health == HealthStatusUnhealthy {
+		T.mu.Unlock()
 		return false
 	}
-
-	T.interval = T.minInterval
-	T.timer.Reset(T.interval)
-	return true
+	T.mu.Unlock()
+	// wait on the first check to complete.
+	T.firstCheck.Wait()
+	// at this point, we know we are no longer state unknown, so we can do the check again
+	return T.canUse()
 }
 
 func (T *Doctor) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {

@@ -8,6 +8,6 @@ import (
 
 type Store interface {
 	Get(ctx context.Context) (hexutil.Uint64, error)
-	Put(ctx context.Context, head hexutil.Uint64) error
+	Put(ctx context.Context, head hexutil.Uint64) (prev hexutil.Uint64, err error)
 	On() (<-chan hexutil.Uint64, func())
 }

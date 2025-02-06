@@ -16,6 +16,10 @@ describe("http simple", ()=>{
     const blockNumber = await provider[mainnet.id].getBlockNumber()
     expect(blockNumber).toBeGreaterThan(19066961n)
   })
+  test("able to get a finalized block ", async ()=>{
+    const block = await provider[polygon.id].getBlock({blockTag: "finalized"})
+    expect(block.number).toBeGreaterThan(19066961n)
+  })
   test("polygon block changes within 5 seconds", async ()=>{
     const blockNumberOld = await provider[polygon.id].getBlockNumber()
     await new Promise(resolve => setTimeout(resolve, 5000));

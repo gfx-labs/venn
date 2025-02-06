@@ -3,6 +3,7 @@ package redihead
 import (
 	"context"
 	"fmt"
+	"log"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -84,14 +85,19 @@ func New(params Params) (r Result, err error) {
 }
 
 func (T *Redihead) Get(ctx context.Context) (hexutil.Uint64, error) {
+	log.Println("got from redihead")
 	return hexutil.Uint64(T.head.Load()), nil
 }
 
-func (T *Redihead) Put(ctx context.Context, head hexutil.Uint64) error {
-	_, err := T.stream.Add(ctx, Head{
+func (T *Redihead) Put(ctx context.Context, head hexutil.Uint64) (hexutil.Uint64, error) {
+	was, err := T.Get(ctx)
+	if err != nil {
+		return 0, err
+	}
+	_, err = T.stream.Add(ctx, Head{
 		Value: uint64(head),
 	})
-	return err
+	return was, err
 }
 
 func (T *Redihead) setHead(head uint64) {

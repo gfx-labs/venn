@@ -25,12 +25,12 @@ func (T *Atomic) Get(_ context.Context) (hexutil.Uint64, error) {
 	return T.head, nil
 }
 
-func (T *Atomic) Put(_ context.Context, head hexutil.Uint64) error {
+func (T *Atomic) Put(_ context.Context, head hexutil.Uint64) (prev hexutil.Uint64, err error) {
 	T.mu.Lock()
 	defer T.mu.Unlock()
 
 	if T.head >= head {
-		return nil
+		return T.head, nil
 	}
 
 	for _, sub := range T.subs {
@@ -39,10 +39,9 @@ func (T *Atomic) Put(_ context.Context, head hexutil.Uint64) error {
 		default:
 		}
 	}
-
+	old := T.head
 	T.head = head
-
-	return nil
+	return old, nil
 }
 
 func (T *Atomic) On() (<-chan hexutil.Uint64, func()) {

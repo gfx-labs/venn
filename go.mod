@@ -1,8 +1,6 @@
 module gfx.cafe/gfx/venn
 
-go 1.22.0
-
-toolchain go1.22.4
+go 1.23.0
 
 require (
 	gfx.cafe/open/gotoprom v0.0.2

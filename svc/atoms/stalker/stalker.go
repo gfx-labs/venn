@@ -110,39 +110,66 @@ func (T *Stalker) stalk(ctx context.Context) {
 	ticker := time.NewTicker(blockTime)
 	defer ticker.Stop()
 	for {
-		err := T.tick(ctx)
+		waitfor, err := T.tick(ctx)
 		if err != nil {
 			select {
 			case <-ctx.Done():
 				return
 			default:
 			}
-			T.log.Error("failed to get block head", "error", err)
+			T.log.Error("failed to get block head", "chain", T.chain.Name, "error", err)
 		}
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-time.After(waitfor):
 			continue
 		}
 	}
 }
 
-func (T *Stalker) tick(ctx context.Context) error {
+func (T *Stalker) tick(ctx context.Context) (time.Duration, error) {
+	blockTime := time.Duration(T.chain.BlockTimeSeconds * float64(time.Second))
+	// ask for the latest block
 	var block json.RawMessage
 	if err := jrpcutil.Do(ctx, T.remote, &block, "eth_getBlockByNumber", []any{"latest", false}); err != nil {
-		return err
+		return blockTime, err
 	}
+	now := time.Now()
 
-	// extract block number
+	// extract block number and timestamp
 	var head struct {
 		BlockNumber hexutil.Uint64 `json:"number"`
-	}
-	if err := json.Unmarshal(block, &head); err != nil {
-		return err
+		Timestamp   hexutil.Uint64 `json:"timestamp"`
 	}
 
-	return T.store.Put(ctx, head.BlockNumber)
+	if err := json.Unmarshal(block, &head); err != nil {
+		return blockTime, err
+	}
+
+	objTime := time.Unix(int64(head.Timestamp), 0)
+	nextTime := objTime.Add(blockTime)
+
+	prev, err := T.store.Put(ctx, head.BlockNumber)
+	_ = prev
+
+	if prev == head.BlockNumber {
+		// if there was no change, and we expected one, use the min time of 500ms
+		if nextTime.After(now) {
+			return 500 * time.Millisecond, nil
+		}
+		// otherwise, use the time until the expected time, or 500ms, whichever is greater
+		return max(time.Until(nextTime), 500*time.Millisecond), err
+	} else {
+		// we got a new block, so we can just use the larger of these two values
+		nextWait := max(time.Until(nextTime), 500*time.Millisecond)
+		T.log.Info("received new block",
+			"got", head.BlockNumber, "prev", prev,
+			"expected time", nextTime, "now", now,
+			"next wait", nextWait,
+		)
+		return nextWait, err
+	}
 }
 
 func (T *Stalker) toConcreteBlockNumber(ctx context.Context, blockNumbers ...*ethtypes.BlockNumber) (changed bool, passthrough bool, err error) {

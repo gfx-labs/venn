@@ -54,14 +54,15 @@ func (m *RedilockStrategy) Join(ctx context.Context) error {
 		defer func() {
 			ticker.Stop()
 			m.leaderLock.UnlockContext(ctx)
+			m.log.Info("election loop shutdown", "uuid", m.id)
 		}()
 		for {
 			err := m.loop(ctx)
 			if err != nil {
-				if fxplus.IsShutdownOrCancel(err) || errors.Is(err, redis.ErrClosed) {
+				if fxplus.IsShutdownOrCancel(err) {
 					return
 				}
-				m.log.Error("leader election loop", "err", err)
+				m.log.Error("leader election loop ended with error", "err", err)
 			}
 			select {
 			case <-ticker.C:
@@ -69,7 +70,9 @@ func (m *RedilockStrategy) Join(ctx context.Context) error {
 				if errors.Is(err, context.Canceled) {
 					return
 				}
-				m.log.Error("leader election loop", "err", err)
+				if err != nil {
+					m.log.Error("leader election loop ended with error", "err", err)
+				}
 			}
 		}
 	}()

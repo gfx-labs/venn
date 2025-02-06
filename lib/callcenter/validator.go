@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -38,7 +39,7 @@ func (T *Validator) updateHead(head hexutil.Uint64, updated time.Time) error {
 	defer T.mu.Unlock()
 
 	if head < T.head {
-		return ErrHeadJumpedBackwards
+		return fmt.Errorf("%w: %d -> %d", ErrHeadJumpedBackwards, T.head, head)
 	}
 
 	if head > T.head {
