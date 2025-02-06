@@ -21,7 +21,7 @@ describe("ws simple", ()=>{
     })
     return [x.id, pc]
   }))
-   test("subscription for 5 received more than one block", async ()=>{
+  test("subscription for 5 received more than one block", async ()=>{
     const receivedHeaders = []
     const subClient = await provider[polygon.id].transport.subscribe({
       params:["newHeads"],

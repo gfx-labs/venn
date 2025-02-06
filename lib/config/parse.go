@@ -135,6 +135,10 @@ func ParseConfig(datae ...[]byte) (*Config, error) {
 		for _, vv := range v.Remotes {
 			vv.Chain = v
 
+			if v.Name == "health" {
+				return nil, fmt.Errorf(`chain name cannot be "%s"`, v.Name)
+			}
+
 			for key, value := range vv.Headers {
 				vv.Headers[key] = os.ExpandEnv(value)
 			}
