@@ -62,7 +62,7 @@ func (m *RedilockStrategy) Join(ctx context.Context) error {
 				if fxplus.IsShutdownOrCancel(err) {
 					return
 				}
-				m.log.Error("leader election loop ended with error", "err", err)
+				m.log.Error("leader election errored", "err", err)
 			}
 			select {
 			case <-ticker.C:
@@ -73,6 +73,7 @@ func (m *RedilockStrategy) Join(ctx context.Context) error {
 				if err != nil {
 					m.log.Error("leader election loop ended with error", "err", err)
 				}
+				return
 			}
 		}
 	}()
