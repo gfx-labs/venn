@@ -40,8 +40,7 @@ func (T *Collector) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 			Method:  r.Method,
 			Success: icept.Error == nil,
 		}
-
-		T.prometheus.Remotes.Latency(label).Observe(dur.Seconds() * 1000)
+		prom.Remotes.Latency(label).Observe(dur.Seconds() * 1000)
 	}()
 
 	T.remote.ServeRPC(&icept, r)

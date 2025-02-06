@@ -21,6 +21,7 @@ import (
 	"gfx.cafe/gfx/venn/svc/atoms/election"
 	"gfx.cafe/gfx/venn/svc/atoms/vennstore"
 	"gfx.cafe/gfx/venn/svc/quarks/cluster"
+	"gfx.cafe/gfx/venn/svc/services/prom"
 )
 
 type Stalker struct {
@@ -30,6 +31,8 @@ type Stalker struct {
 	remote   jrpc.Handler
 	store    headstore.Store
 	election *election.Election
+
+	dt *delayTracker
 }
 
 type Stalkers = util.Multichain[*Stalker]
@@ -78,6 +81,9 @@ func New(p Params) (r Result, err error) {
 				store:    store,
 				election: p.Election,
 			}
+
+			blockTime := time.Duration(chain.BlockTimeSeconds * float64(time.Second))
+			s.dt = newDelayTracker(128, 0, int(blockTime))
 
 			p.Lc.Append(fx.Hook{
 				OnStart: func(_ context.Context) error {
@@ -153,36 +159,58 @@ func (T *Stalker) tick(ctx context.Context) (time.Duration, error) {
 		// store error, so lets just wait the block time
 		return blockTime, err
 	}
-	if prev == head.BlockNumber {
-		// if there was no change, but its okay because the next one is yet to arrive
-		if nextTime.After(now) {
-			T.log.Debug("requested block too early stale block",
-				"chain", T.chain.Name,
-				"next", nextTime, "now", now,
-			)
-			return min(max(nextTime.Sub(now), 500*time.Millisecond), blockTime), nil
+	if prev != head.BlockNumber {
+		// we can use this as a data point for propogation delay. we accept a propogation delay of up to the blocktime
+		propDelay := nextTime.Sub(now)
+		if propDelay > 0 {
+			// add a datapoint
+			T.dt.Add(int(propDelay))
+		} else {
+			propDelay = 0
 		}
-		// in the case there is propogation delay, we take the max of 500ms and the blocktime/4, to avoid spamming nodes
-		nextWait := max(500*time.Millisecond, blockTime/4)
-		T.log.Debug("received stale block",
-			"chain", T.chain.Name,
-			"got", head.BlockNumber, "prev", prev,
-			"expected time", nextTime, "now", now,
-			"next wait", nextWait,
-		)
-		return nextWait, nil
-		// otherwise, use the time until the expected time, or 500ms, whichever is greater
-	} else {
-		// we got a new block, so we can just use the smaller of these two values
-		nextWait := max(min(nextTime.Sub(now), blockTime), 500*time.Millisecond, blockTime/4)
+		// we got a new block, so we can just use the max of all these values
+		nextWait := max(min(nextTime.Sub(now), blockTime), 500*time.Millisecond, blockTime/2)
+		meanPropDelay := time.Duration(T.dt.Mean())
+		// if the mean propogation delay is greater than 250ms, we reduce by 10% in order to try give the node a chance to "recover" from said delay, slightly
+		if meanPropDelay-250*time.Millisecond > 0 {
+			nextWait = nextWait + meanPropDelay*10/9
+		}
+		stalkerLabel := prom.StalkerLabel{
+			Chain: T.chain.Name,
+		}
+		prom.Stalker.BlockPropogationDelay(stalkerLabel).Observe(float64(propDelay))
+
+		prom.Stalker.PropogationDelayMean(stalkerLabel).Set(float64(meanPropDelay.Milliseconds()))
+
 		T.log.Debug("received new block",
 			"chain", T.chain.Name,
 			"got", head.BlockNumber, "prev", prev,
 			"expected time", nextTime, "now", now,
 			"next wait", nextWait,
+			"propogation delay", meanPropDelay,
 		)
+
 		return nextWait, err
 	}
+	// you checked the block too early and didnt get a new block. no problem, just wait it out, but do put an info log so we know its happening
+	if nextTime.After(now) {
+		T.log.Info("requested the block too early",
+			"chain", T.chain.Name,
+			"next", nextTime, "now", now,
+		)
+		return min(max(nextTime.Sub(now), 500*time.Millisecond), blockTime), nil
+	}
+	// in the case of continuing propogation delay, we take the max of 500ms and the blocktime/4, to avoid spamming nodes
+	nextWait := max(500*time.Millisecond, blockTime/4)
+	T.log.Debug("received stale block",
+		"chain", T.chain.Name,
+		"got", head.BlockNumber, "prev", prev,
+		"expected time", nextTime, "now", now,
+		"next wait", nextWait,
+	)
+	return nextWait, nil
+	// otherwise, use the time until the expected time, or 500ms, whichever is greater
+
 }
 
 func (T *Stalker) toConcreteBlockNumber(ctx context.Context, blockNumbers ...*ethtypes.BlockNumber) (changed bool, passthrough bool, err error) {

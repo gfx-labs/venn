@@ -5,14 +5,11 @@ import (
 	"log/slog"
 	"net/http"
 
-	"gfx.cafe/open/gotoprom"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/fx"
 )
 
 type Prometheus struct {
-	Requests Requests `namespace:"requests"`
-	Remotes  Remotes  `namespace:"remotes"`
 }
 
 type PrometheusParams struct {
@@ -34,7 +31,7 @@ func New(params PrometheusParams) PrometheusResult {
 	params.Lc.Append(fx.Hook{
 		OnStart: func(_ context.Context) error {
 			http.Handle("/metrics", promhttp.Handler())
-			return gotoprom.Init(p, "venn", nil)
+			return nil
 		},
 	})
 

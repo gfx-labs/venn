@@ -70,7 +70,7 @@ func (T *Collector) Middleware(fn jrpc.Handler) jrpc.Handler {
 				Success: icept.Error == nil,
 			}
 
-			T.p.Requests.Latency(label).Observe(dur.Seconds() * 1000)
+			prom.Requests.Latency(label).Observe(dur.Seconds() * 1000)
 		}()
 
 		fn.ServeRPC(&icept, r)
