@@ -174,7 +174,7 @@ func (T *Stalker) tick(ctx context.Context) (time.Duration, error) {
 		// if the mean propogation delay is greater than 250ms, we reduce by 10% in order to try give the node a chance to "recover" from said delay, slightly
 		// otherwise, we dont actually use the meanPropDelay with the nextwait, because its so small that lets just try to be better.
 		if meanPropDelay-250*time.Millisecond > 0 {
-			nextWait = nextWait + meanPropDelay*10/9
+			nextWait = nextWait + meanPropDelay*9/10
 		}
 		stalkerLabel := prom.StalkerLabel{
 			Chain: T.chain.Name,
