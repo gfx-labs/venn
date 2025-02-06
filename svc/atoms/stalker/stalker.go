@@ -106,9 +106,6 @@ func (T *Stalker) start() {
 }
 
 func (T *Stalker) stalk(ctx context.Context) {
-	blockTime := max(time.Second, time.Duration(T.chain.BlockTimeSeconds*float64(time.Second))/2)
-	ticker := time.NewTicker(blockTime)
-	defer ticker.Stop()
 	for {
 		waitfor, err := T.tick(ctx)
 		if err != nil {
@@ -152,18 +149,33 @@ func (T *Stalker) tick(ctx context.Context) (time.Duration, error) {
 
 	prev, err := T.store.Put(ctx, head.BlockNumber)
 	_ = prev
-
+	if err != nil {
+		// store error, so lets just wait the block time
+		return blockTime, err
+	}
 	if prev == head.BlockNumber {
-		// if there was no change, and we expected one, use the min time of 500ms
+		// if there was no change, but its okay because the next one is yet to arrive
 		if nextTime.After(now) {
-			return 500 * time.Millisecond, nil
+			T.log.Debug("requested block too early stale block",
+				"chain", T.chain.Name,
+				"next", nextTime, "now", now,
+			)
+			return max(500*time.Millisecond, blockTime), nil
 		}
+		nextWait := max(nextTime.Sub(now), 500*time.Millisecond, blockTime/6)
+		T.log.Debug("received stale block",
+			"chain", T.chain.Name,
+			"got", head.BlockNumber, "prev", prev,
+			"expected time", nextTime, "now", now,
+			"next wait", nextWait,
+		)
+		return nextWait, nil
 		// otherwise, use the time until the expected time, or 500ms, whichever is greater
-		return max(time.Until(nextTime), 500*time.Millisecond), err
 	} else {
-		// we got a new block, so we can just use the larger of these two values
-		nextWait := max(time.Until(nextTime), 500*time.Millisecond)
-		T.log.Info("received new block",
+		// we got a new block, so we can just use the smaller of these two values
+		nextWait := max(min(nextTime.Sub(now), blockTime), 500*time.Millisecond, blockTime/4)
+		T.log.Debug("received new block",
+			"chain", T.chain.Name,
 			"got", head.BlockNumber, "prev", prev,
 			"expected time", nextTime, "now", now,
 			"next wait", nextWait,
