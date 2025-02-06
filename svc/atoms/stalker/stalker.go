@@ -145,7 +145,7 @@ func (T *Stalker) tick(ctx context.Context) error {
 	return T.store.Put(ctx, head.BlockNumber)
 }
 
-func (T *Stalker) toConcreteBlockNumber(ctx context.Context, blockNumbers ...*ethtypes.BlockNumber) (changed bool, err error) {
+func (T *Stalker) toConcreteBlockNumber(ctx context.Context, blockNumbers ...*ethtypes.BlockNumber) (changed bool, passthrough bool, err error) {
 	var head hexutil.Uint64
 	var hasHead bool
 	for _, blockNumber := range blockNumbers {
@@ -162,8 +162,8 @@ func (T *Stalker) toConcreteBlockNumber(ctx context.Context, blockNumbers ...*et
 			*blockNumber = ethtypes.BlockNumber(head)
 			changed = true
 		case ethtypes.LatestExecutedBlockNumber, ethtypes.PendingBlockNumber, ethtypes.SafeBlockNumber, ethtypes.FinalizedBlockNumber:
-			err = jsonrpc.NewInvalidParamsError(`expected "latest" or number`) // TODO(garet)
-			return
+			//		err = jsonrpc.NewInvalidParamsError(`expected "latest" or number`) // TODO(garet)
+			return false, true, nil
 		default:
 			continue
 		}
@@ -201,7 +201,7 @@ func (T *Stalker) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 			return
 		}
 
-		changed, err := T.toConcreteBlockNumber(r.Context(), &blockNumber)
+		changed, _, err := T.toConcreteBlockNumber(r.Context(), &blockNumber)
 		if err != nil {
 			_ = w.Send(nil, err)
 			return
@@ -229,7 +229,7 @@ func (T *Stalker) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 			return
 		}
 
-		changed, err := T.toConcreteBlockNumber(r.Context(), &request[0])
+		changed, _, err := T.toConcreteBlockNumber(r.Context(), &request[0])
 		if err != nil {
 			_ = w.Send(nil, err)
 			return
@@ -263,7 +263,7 @@ func (T *Stalker) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 			return
 		}
 
-		changed, err := T.toConcreteBlockNumber(r.Context(), &blockNumber)
+		changed, _, err := T.toConcreteBlockNumber(r.Context(), &blockNumber)
 		if err != nil {
 			_ = w.Send(nil, err)
 			return
@@ -303,7 +303,7 @@ func (T *Stalker) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 			if request[0].ToBlock != nil {
 				toBlock = *request[0].ToBlock
 			}
-			changed, err := T.toConcreteBlockNumber(r.Context(), &fromBlock, &toBlock)
+			changed, _, err := T.toConcreteBlockNumber(r.Context(), &fromBlock, &toBlock)
 			if err != nil {
 				_ = w.Send(nil, err)
 				return

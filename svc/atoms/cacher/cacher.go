@@ -259,6 +259,7 @@ func (T *Cacher) ServeRPC(w jrpc.ResponseWriter, r *jrpc.Request) {
 		}
 
 		if blockNumber >= 0 {
+			// positive number, try to get from the store
 			entries, err := T.store.Get(r.Context(), blockstore.EntryBlockHeader, blockstore.QueryNumber(hexutil.Uint64(blockNumber)))
 			if err != nil {
 				_ = w.Send(nil, err)
@@ -279,6 +280,7 @@ func (T *Cacher) ServeRPC(w jrpc.ResponseWriter, r *jrpc.Request) {
 			return
 		}
 
+		// otherwise, proxy back to the remote
 		var block json.RawMessage
 		if err := jrpcutil.Do(r.Context(), T.remote, &block, "eth_getBlockByNumber", []any{blockNumber, true}); err != nil {
 			_ = w.Send(nil, err)
