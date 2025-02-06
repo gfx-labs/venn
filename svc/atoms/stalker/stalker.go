@@ -160,9 +160,10 @@ func (T *Stalker) tick(ctx context.Context) (time.Duration, error) {
 				"chain", T.chain.Name,
 				"next", nextTime, "now", now,
 			)
-			return max(500*time.Millisecond, blockTime), nil
+			return min(max(nextTime.Sub(now), 500*time.Millisecond), blockTime), nil
 		}
-		nextWait := max(nextTime.Sub(now), 500*time.Millisecond, blockTime/6)
+		// in the case there is propogation delay, we take the max of 500ms and the blocktime/4, to avoid spamming nodes
+		nextWait := max(500*time.Millisecond, blockTime/4)
 		T.log.Debug("received stale block",
 			"chain", T.chain.Name,
 			"got", head.BlockNumber, "prev", prev,
