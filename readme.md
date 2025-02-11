@@ -2,14 +2,16 @@
 
 venn, is play on `virtual ethereum node`, but like `venn-diagram` since it's like, the overlap between multiple rpcs/data sources. get it?
 
-before the existence of erpc, there was a need to have a single rpc endpoint which could automatically fall back to other rpc endpoints. this tool was built internally at gfx labs to support this.
+before the existence of erpc, there was a need to have a single rpc endpoint which could automatically fall back to other rpc endpoints. this tool was built internally at gfx labs to support this. importantly, we wanted to send requests primarily to lower quality rpc endpoints, but be able to fallback to high quality ones, as a cost optimization.
 
-the key features that venn needed to be able to provide were:
+the key features that venn needed to be able to provide (and does) are:
 
-1. cache blocks at head, to reduce the cost of multiple indexers.
+1. cache blocks at head, to reduce the cost of multiple indexers both running to the same rpc.
 2. fallback when rpcs fell behind or become unavailable, to a second rpc.
 3. support eth_subscribe, as we have applications which depend on it.
 
+
+there are an assortment of other features - but by in large the are not super relevant.
 
 the original version of venn - named brilliant - dates back to 2021.
 
