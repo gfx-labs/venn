@@ -232,7 +232,7 @@ func (T *Stalker) toConcreteBlockNumber(ctx context.Context, blockNumbers ...*et
 			changed = true
 		case ethtypes.LatestExecutedBlockNumber, ethtypes.PendingBlockNumber, ethtypes.SafeBlockNumber, ethtypes.FinalizedBlockNumber:
 			//		err = jsonrpc.NewInvalidParamsError(`expected "latest" or number`) // TODO(garet)
-			return false, true, nil
+			return changed, true, nil
 		default:
 			continue
 		}
