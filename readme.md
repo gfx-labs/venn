@@ -26,15 +26,15 @@ to understand the jsonrpc2 handling and semantics, please see [jrpc](https://gfx
 
 the primary entrypoint for the api handler is [here](./svc/handler/api.go). if you are familiar with chi, or go stdlib http handling, then this should be rather familiar to you.
 
-there are two different types `stores`, a [headstore](./svc/stores/headstores) and [blockstore]('./svc/stores/vennstores').
+there are two different types `stores`, a [headstore](./svc/stores/headstores) and [blockstore](./svc/stores/vennstores).
 
 the `headstore` provides a way to publish and read the near-head state of a chain, including headers, receipts, and any other information needed to honor subscriptions (eth_subscribe). this can be consumer by followers. the only existing implementation right now is redis.
 
 the `blockstore` is a backend that can respond to json-rpc requests with historical headers and receipts, it could be a jsonrpc remote, a postgres database, or even another venn instance.
 
-each `venn` cluster uses a leader election to determine who is the [stalker]('./svc/atoms/stalker/stalker.go'). the stalker is responsible for 'stalking' the head of the chain (being at the tip is the job for the node, we are by definition always stalking behind). the stalker reads data from redis, and so ideally there should be quick consistency here.
+each `venn` cluster uses a leader election to determine who is the [stalker](./svc/atoms/stalker/stalker.go). the stalker is responsible for 'stalking' the head of the chain (being at the tip is the job for the node, we are by definition always stalking behind). the stalker reads data from redis, and so ideally there should be quick consistency here.
 
-the stalker pushes new head payloads to the `headstore`, which is consumed by the [subcenter]('./svc/atoms/subcenter/component.go') to provide subscriptions. the stalker also reads from the headstore in order to serve requests at head. when indexing, this is by and large the #1 called.
+the stalker pushes new head payloads to the `headstore`, which is consumed by the [subcenter](./svc/atoms/subcenter/component.go) to provide subscriptions. the stalker also reads from the headstore in order to serve requests at head. when indexing, this is by and large the #1 called.
 
 a [forger](./svc/atoms/forger) allows the forging of json-rpc methods that the original remotes do not support
 
