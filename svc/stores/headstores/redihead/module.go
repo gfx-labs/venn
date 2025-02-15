@@ -3,6 +3,7 @@ package redihead
 import (
 	"context"
 	"fmt"
+	"log"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -134,30 +135,36 @@ func (T *Redihead) run(ctx context.Context) {
 		start = "$"
 	}
 
-	consumer := gtrs.NewConsumer[Head](
-		ctx,
-		T.redi.C(),
-		gtrs.StreamIDs{
-			fmt.Sprintf("venn:%s:%s:head:stream", T.redi.Namespace(), T.chain.Name): start,
-		},
-	)
-	defer consumer.Close()
+	consume := func() bool {
+		consumer := gtrs.NewConsumer[Head](
+			ctx,
+			T.redi.C(),
+			gtrs.StreamIDs{
+				fmt.Sprintf("venn:%s:%s:head:stream", T.redi.Namespace(), T.chain.Name): start,
+			},
+		)
+		defer consumer.Close()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg, ok := <-consumer.Chan():
-			if !ok {
-				return
-			}
-			if msg.Err != nil {
-				T.log.Error("message error", "error", msg.Err)
-				continue
-			}
+		for {
+			select {
+			case <-ctx.Done():
+				return false
+			case msg, ok := <-consumer.Chan():
+				if !ok {
+					log.Println("gtrs consumer closed. attempting reconnect in 1 second")
+					time.Sleep(1 * time.Second)
+					return true
+				}
+				if msg.Err != nil {
+					T.log.Error("message error", "error", msg.Err)
+					continue
+				}
 
-			T.setHead(msg.Data.Value)
+				T.setHead(msg.Data.Value)
+			}
 		}
+	}
+	for consume() {
 	}
 }
 

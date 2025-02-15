@@ -17,6 +17,6 @@ const provider = Object.fromEntries(chains.map((x)=>{
 const subClient = provider[polygon.id].transport.subscribe({
   params:["newHeads"],
   onData: (x)=>{
-    console.log(x)
+    console.log(x.result.number, new Date())
   }
 }).catch(console.error)

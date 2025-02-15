@@ -153,7 +153,8 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 
 					for {
 						select {
-						case <-notifier.Err():
+						case err := <-notifier.Err():
+							T.log.Error("notfier error", "error", err)
 							return
 						case head := <-sub:
 							for i := current + 1; i <= head; i++ {
@@ -193,7 +194,6 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 				go func() {
 					sub, done := T.store.On()
 					defer done()
-
 					for {
 						select {
 						case <-notifier.Err():
