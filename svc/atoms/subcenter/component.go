@@ -154,25 +154,26 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 					for {
 						select {
 						case err := <-notifier.Err():
-							T.log.Error("notfier error", "error", err)
+							T.log.Error("notifier error. subscription closing.", "error", err)
 							return
 						case head := <-sub:
+							// NOTE: eth_subscribe doesn't guarantee that every single block will be sent.
+							// we could implement native retry logic the underlying cluster, retrying non application/user errors up to N times with some sort of backoff, to better deliver blocks.
 							for i := current + 1; i <= head; i++ {
 								var block json.RawMessage
 								if err := jrpcutil.Do(r.Context(), h, &block, "eth_getBlockByNumber", []any{i, false}); err != nil {
 									T.log.Error("failed to get block", "error", err)
-									return
+									continue
 								}
-
 								withoutTxns, err := T.removeTransactions(block)
 								if err != nil {
-									T.log.Error("failed to remove txns from block", "error", err)
-									return
+									T.log.Error("failed to remove txns from block. was the block invalid?", "error", err)
+									continue
 								}
-
+								// if the notifier errors, the connection should closed if it errors anyways, so we can just continue and let the err from notifier.Err() do the return
 								if err := notifier.Notify(withoutTxns); err != nil {
-									T.log.Error("failed to notify subscription", "error", err)
-									return
+									T.log.Error("failed to notify the subscription", "error", err)
+									continue
 								}
 							}
 							current = head
@@ -211,28 +212,25 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 									Topics:    filter.Topics,
 								},
 							}); err != nil {
-								T.log.Error("failed to get logs", "error", err)
-								return
+								T.log.Error("failed to get logs for sub", "error", err)
+								continue
 							}
 
 							d := jx.DecodeBytes(logs)
-
 							arr, err := d.ArrIter()
 							if err != nil {
-								T.log.Error("failed to get logs", "error", err)
-								return
+								T.log.Error("failed to decode logs. are the logs corrupt?", "error", err)
+								continue
 							}
-
 							for arr.Next() {
 								log, err := d.Raw()
 								if err != nil {
-									T.log.Error("failed to get logs", "error", err)
-									return
+									T.log.Error("failed to decode log. are they corrupt?", "error", err)
+									continue
 								}
-
 								if err = notifier.Notify(json.RawMessage(log)); err != nil {
 									T.log.Error("failed to notify subscription", "error", err)
-									return
+									continue
 								}
 							}
 
