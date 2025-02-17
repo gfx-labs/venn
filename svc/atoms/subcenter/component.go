@@ -170,10 +170,10 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 									T.log.Error("failed to remove txns from block. was the block invalid?", "error", err)
 									continue
 								}
-								// if the notifier errors, the connection should closed if it errors anyways, so we can just continue and let the err from notifier.Err() do the return
+								// if the notifier errors, the connection should closed if it errors anyways, so we can error here and return, since that will happen anyways, we may as well not waste the calls to more blocks
 								if err := notifier.Notify(withoutTxns); err != nil {
 									T.log.Error("failed to notify the subscription", "error", err)
-									continue
+									return
 								}
 							}
 							current = head
@@ -230,7 +230,7 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 								}
 								if err = notifier.Notify(json.RawMessage(log)); err != nil {
 									T.log.Error("failed to notify subscription", "error", err)
-									continue
+									return
 								}
 							}
 
