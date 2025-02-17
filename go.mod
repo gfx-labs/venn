@@ -7,7 +7,7 @@ toolchain go1.23.2
 require (
 	gfx.cafe/open/gotoprom v0.0.2
 	gfx.cafe/open/gun v0.0.3
-	gfx.cafe/open/jrpc v0.5.3
+	gfx.cafe/open/jrpc v0.6.1
 	gfx.cafe/util/go v1.12.1-0.20240717000937-c42e930797c2
 	github.com/alecthomas/hcl/v2 v2.0.0
 	github.com/alicebob/miniredis/v2 v2.32.1
@@ -39,7 +39,6 @@ require (
 	golang.org/x/sync v0.10.0
 	golang.org/x/sys v0.29.1-0.20250107080300-1c14dcadc3ab
 	golang.org/x/time v0.9.0
-	tailscale.com v1.80.0
 )
 
 require (
@@ -55,7 +54,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/gfx-labs/sse v0.0.0-20240119011344-a9213f2a635b // indirect
+	github.com/gfx-labs/sse v0.0.0-20241016074208-406bd1302230 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -77,6 +76,7 @@ require (
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/tetratelabs/wazero v1.6.0 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.28.0 // indirect
@@ -94,7 +94,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect
 	google.golang.org/grpc v1.64.0 // indirect
 	google.golang.org/protobuf v1.35.1 // indirect
-	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

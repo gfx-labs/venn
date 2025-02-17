@@ -147,7 +147,7 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 
 			switch method {
 			case "newHeads":
-				go func() {
+				{
 					sub, done := T.store.On()
 					defer done()
 
@@ -179,25 +179,26 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 							current = head
 						}
 					}
-				}()
+				}
 			case "logs":
-				var filter ethtypes.SubscriptionFilterQuery
-				if len(params) != 1 {
-					_ = w.Send(nil, jsonrpc.NewInvalidParamsError("expected 1 parameter"))
-					return
-				}
+				{
+					var filter ethtypes.SubscriptionFilterQuery
+					if len(params) != 1 {
+						_ = w.Send(nil, jsonrpc.NewInvalidParamsError("expected 1 parameter"))
+						return
+					}
 
-				if err = json.Unmarshal(params[0], &filter); err != nil {
-					_ = w.Send(nil, jsonrpc.NewInvalidParamsError(err.Error()))
-					return
-				}
+					if err = json.Unmarshal(params[0], &filter); err != nil {
+						_ = w.Send(nil, jsonrpc.NewInvalidParamsError(err.Error()))
+						return
+					}
 
-				go func() {
 					sub, done := T.store.On()
 					defer done()
 					for {
 						select {
 						case <-notifier.Err():
+							T.log.Error("notifier error. subscription closing.", "error", err)
 							return
 						case head := <-sub:
 							from := ethtypes.BlockNumber(current + 1)
@@ -237,7 +238,7 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 							current = head
 						}
 					}
-				}()
+				}
 			default:
 				_ = w.Send(nil, jsonrpc.NewInvalidRequestError("unknown subscription method"))
 				return
