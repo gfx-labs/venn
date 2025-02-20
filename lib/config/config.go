@@ -159,5 +159,5 @@ type Remote struct {
 
 type RemoteRateLimit struct {
 	EventsPerSecond float64 `hcl:"events_per_second"`
-	Burst           int     `hcl:"burst,optional"`
+	Burst           int     `hcl:"burst"`
 }

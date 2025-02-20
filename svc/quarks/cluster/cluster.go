@@ -118,6 +118,13 @@ func New(params Params) (r Result, err error) {
 								rate.Limit(cfg.RateLimit.EventsPerSecond),
 								cfg.RateLimit.Burst,
 							)
+						} else {
+							// default values of 50/100
+							remote = callcenter.NewRatelimiter(
+								remote,
+								50,
+								100,
+							)
 						}
 
 						methods := make(map[string]bool)
