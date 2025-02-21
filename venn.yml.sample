@@ -1,0 +1,84 @@
+bind: localhost:8545
+logging: {}
+redis:
+  namespace: venn-dev
+  uri: embedded
+chains:
+- block_time_seconds: 12
+  id: 1
+  name: ethereum
+  remotes:
+  - Chain: null
+    filters:
+    - geth
+    - trace
+    name: brilliant
+    url: https://mainnet-rpc.apiary.software
+- block_time_seconds: 2
+  id: 137
+  name: polygon
+  remotes:
+  - Chain: null
+    filters:
+    - geth
+    name: ankr
+    url: https://rpc.ankr.com/polygon
+election: {}
+filters:
+- methods:
+    debug_getBadBlocks: true
+    debug_getRawBlock: true
+    debug_getRawHeader: true
+    debug_getRawReceipts: true
+    debug_getRawTransaction: true
+    eth_accounts: true
+    eth_blockNumber: true
+    eth_call: true
+    eth_coinbase: true
+    eth_createAccessList: true
+    eth_estimateGas: true
+    eth_feeHistory: true
+    eth_gasPrice: true
+    eth_getBalance: true
+    eth_getBlockByHash: true
+    eth_getBlockByNumber: true
+    eth_getBlockReceipts: true
+    eth_getBlockTransactionCountByHash: true
+    eth_getBlockTransactionCountByNumber: true
+    eth_getCode: true
+    eth_getLogs: true
+    eth_getProof: true
+    eth_getStorageAt: true
+    eth_getTransactionByBlockHashAndIndex: true
+    eth_getTransactionByHash: true
+    eth_getTransactionCount: true
+    eth_getTransactionReceipt: true
+    eth_getUncleCountByBlockHash: true
+    eth_getUncleCountByBlockNumber: true
+    eth_maxPriorityFeePerGas: true
+    eth_sendRawTransaction: true
+  name: geth
+- methods:
+    trace_block: true
+    trace_call: true
+    trace_callMany: true
+    trace_filter: true
+    trace_get: true
+    trace_rawTransaction: true
+    trace_replaceBlockTransactions: true
+    trace_replayTransaction: true
+    trace_transaction: true
+  name: trace
+- methods:
+    ots_getApiLevel: true
+    ots_getBlockDetails: true
+    ots_getBlockTransactions: true
+    ots_getContractCreator: true
+    ots_getInternalOperations: true
+    ots_getTransactionBySenderAndNonce: true
+    ots_getTransactionError: true
+    ots_hasCode: true
+    ots_searchTransactionsAfter: true
+    ots_searchTransactionsBefore: true
+    ots_traceTransaction: true
+  name: ots

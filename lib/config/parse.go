@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,9 +8,9 @@ import (
 	"time"
 
 	"gfx.cafe/gfx/venn/lib/util"
+	"sigs.k8s.io/yaml"
 
 	"github.com/alecthomas/hcl/v2"
-	"github.com/joho/godotenv"
 	"github.com/lmittmann/tint"
 	"go.uber.org/fx"
 )
@@ -33,15 +32,13 @@ type ConfigResult struct {
 
 func FileParser(file string) func() (ConfigResult, error) {
 	return func() (ConfigResult, error) {
-
 		bts, err := os.ReadFile(file)
 		if err != nil {
 			return ConfigResult{}, err
 		}
-		godotenv.Load()
 
 		var cfg *Config
-		cfg, err = ParseConfig(bts)
+		cfg, err = ParseConfig(file, bts)
 		if err != nil {
 			return ConfigResult{}, err
 		}
@@ -76,6 +73,7 @@ func FileParser(file string) func() (ConfigResult, error) {
 				Level:     level,
 			}))
 		}
+		logger.Info("config loaded", "file", file)
 		res := ConfigResult{
 			HTTP:      &cfg.HTTP,
 			Redis:     cfg.Redis,
@@ -101,16 +99,22 @@ func ParseConfigFile(file string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ParseConfig(bts)
+	return ParseConfig(file, bts)
 }
 
-func ParseConfig(datae ...[]byte) (*Config, error) {
+func ParseConfig(file string, data []byte) (*Config, error) {
 	c := &Config{}
-	data := bytes.Join(datae, []byte("\r\n"))
 
-	err := hcl.Unmarshal(data, c)
-	if err != nil {
-		return nil, err
+	if strings.HasSuffix(file, ".hcl") {
+		err := hcl.Unmarshal(data, c)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err := yaml.Unmarshal(data, c)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if c.Redis != nil {
@@ -125,6 +129,7 @@ func ParseConfig(datae ...[]byte) (*Config, error) {
 
 	// add all the filters from the presets block to the remotes
 	for _, v := range c.Chains {
+		var err error
 		v.ParsedStalk, err = util.CoaFunc(func(v *bool) (bool, error) {
 			return *v, nil
 		}, v.Stalk, true)

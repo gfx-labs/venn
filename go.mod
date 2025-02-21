@@ -10,6 +10,7 @@ require (
 	gfx.cafe/open/jrpc v0.6.1
 	gfx.cafe/util/go v1.12.1-0.20240717000937-c42e930797c2
 	github.com/alecthomas/hcl/v2 v2.0.0
+	github.com/alecthomas/kong v1.8.1
 	github.com/alicebob/miniredis/v2 v2.32.1
 	github.com/dranikpg/gtrs v0.6.0
 	github.com/ethereum/go-ethereum v1.14.12
@@ -39,12 +40,12 @@ require (
 	golang.org/x/sync v0.10.0
 	golang.org/x/sys v0.29.1-0.20250107080300-1c14dcadc3ab
 	golang.org/x/time v0.9.0
+	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
 	gfx.cafe/open/websocket v1.10.0 // indirect
 	github.com/alecthomas/participle/v2 v2.1.1 // indirect
-	github.com/alecthomas/repr v0.3.0 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

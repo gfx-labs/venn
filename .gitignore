@@ -1,3 +1,5 @@
 .env
 venn.hcl
+venn.yml
+venn.yaml
 ca.pem
