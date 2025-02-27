@@ -1,7 +1,7 @@
 import { createPublicClient, webSocket} from "viem"
 
-//const chains = ["fantom", "kaia", "seievm"]
-const chains = ["polygon"]
+const chains = ["hyperevm", "seievm"]
+//const chains = ["polygon"]
 
 const venn_url = process.env.VENN_URL || `localhost:8545`
 
