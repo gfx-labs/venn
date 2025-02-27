@@ -1,22 +1,23 @@
-import { createPublicClient, http, webSocket} from "viem"
-import { mainnet, polygon } from "@gfxlabs/oku-chains"
+import { createPublicClient, webSocket} from "viem"
 
-const chains = [mainnet, polygon]
+//const chains = ["fantom", "kaia", "seievm"]
+const chains = ["polygon"]
 
 const venn_url = process.env.VENN_URL || `localhost:8545`
 
 const provider = Object.fromEntries(chains.map((x)=>{
-  const tp = webSocket(`ws://${venn_url}/${x.internalName}`)
+  const tp = webSocket(`ws://${venn_url}/${x}`)
   const pc = createPublicClient({
-    chain: x,
     transport:tp,
   })
-  return [x.id, pc]
+  return [x, pc]
 }))
 
-const subClient = provider[polygon.id].transport.subscribe({
-  params:["newHeads"],
-  onData: (x)=>{
-    console.log(x.result.number, new Date())
-  }
-}).catch(console.error)
+chains.forEach((n)=>{
+  const subClient = provider[n].transport.subscribe({
+    params:["logs" as any, {} as any],
+    onData: (x)=>{
+      console.log(n, x.result, new Date())
+    }
+  }).catch(console.error)
+})

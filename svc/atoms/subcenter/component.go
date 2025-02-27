@@ -153,6 +153,9 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 
 					for {
 						select {
+						case <-r.Context().Done():
+							T.log.Info("context closed. closing subscription")
+							return
 						case err := <-notifier.Err():
 							T.log.Error("notifier error. subscription closing.", "error", err)
 							return
@@ -173,7 +176,7 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 								// if the notifier errors, the connection should closed if it errors anyways, so we can error here and return, since that will happen anyways, we may as well not waste the calls to more blocks
 								if err := notifier.Notify(withoutTxns); err != nil {
 									T.log.Error("failed to notify the subscription", "error", err)
-									return
+									break
 								}
 							}
 							current = head
@@ -197,7 +200,10 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 					defer done()
 					for {
 						select {
-						case <-notifier.Err():
+						case <-r.Context().Done():
+							T.log.Info("context closed. closing subscription")
+							return
+						case err = <-notifier.Err():
 							T.log.Error("notifier error. subscription closing.", "error", err)
 							return
 						case head := <-sub:
@@ -230,8 +236,8 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 									continue
 								}
 								if err = notifier.Notify(json.RawMessage(log)); err != nil {
-									T.log.Error("failed to notify subscription", "error", err)
-									return
+									T.log.Error("error notifying subscription", "error", err)
+									break
 								}
 							}
 

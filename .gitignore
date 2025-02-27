@@ -2,4 +2,6 @@
 venn.hcl
 venn.yml
 venn.yaml
+*.venn.hcl
+*.venn.yml
 ca.pem
