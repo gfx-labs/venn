@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
@@ -18,8 +19,8 @@ func _main() error {
 	ctx, cn := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cn()
 
-	resp := make(chan *types.Header)
-	sub, err := client.SubscribeNewHead(ctx, resp)
+	resp := make(chan types.Log)
+	sub, err := client.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, resp)
 	if err != nil {
 		return err
 	}
@@ -28,7 +29,7 @@ func _main() error {
 		case err := <-sub.Err():
 			return err
 		case header := <-resp:
-			log.Println("new header:", header.Number)
+			log.Println("new header:", header)
 		}
 	}
 

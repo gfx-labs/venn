@@ -146,7 +146,6 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 			}
 
 			// all good, so we can send the id
-			w.Send(notifier.ID(), nil)
 
 			switch method {
 			case "newHeads":
@@ -154,6 +153,7 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 					sub, done := T.store.On()
 					defer done()
 
+					w.Send(notifier.ID(), nil)
 					for {
 						select {
 						case <-r.Context().Done():
@@ -198,9 +198,9 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 						_ = w.Send(nil, jsonrpc.NewInvalidParamsError(err.Error()))
 						return
 					}
-
 					sub, done := T.store.On()
 					defer done()
+					w.Send(notifier.ID(), nil)
 					for {
 						select {
 						case <-r.Context().Done():
