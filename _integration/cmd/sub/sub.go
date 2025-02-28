@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
@@ -20,7 +21,11 @@ func _main() error {
 	defer cn()
 
 	resp := make(chan types.Log)
-	sub, err := client.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, resp)
+	sub, err := client.SubscribeFilterLogs(ctx, ethereum.FilterQuery{
+		Addresses: []common.Address{
+			common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		},
+	}, resp)
 	if err != nil {
 		return err
 	}

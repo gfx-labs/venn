@@ -125,7 +125,7 @@ var addEntriesScript = redis.NewScript(`
 `)
 
 func (s *Rediblock) namespace() string {
-	return fmt.Sprintf("venn:%s:%s", s.redi.Namespace(), s.chain.Name)
+	return fmt.Sprintf("venn:{%s:%s}", s.redi.Namespace(), s.chain.Name)
 }
 
 func (s *Rediblock) Get(ctx context.Context, typ blockstore.EntryType, query blockstore.Query) ([]*blockstore.Entry, error) {

@@ -102,8 +102,9 @@ type HTTP struct {
 }
 
 type Redis struct {
-	URI       SafeUrl `hcl:"uri,optional" json:"uri,omitempty"`
-	Namespace string  `hcl:"namespace" json:"namespace"`
+	URI       SafeUrl   `hcl:"uri,optional" json:"uri,omitempty"`
+	Cluster   []SafeUrl `hcl:"cluster,optional" json:"cluster,omitempty"`
+	Namespace string    `hcl:"namespace" json:"namespace"`
 }
 
 type Scylla struct {

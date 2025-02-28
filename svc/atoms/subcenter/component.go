@@ -198,9 +198,10 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 						_ = w.Send(nil, jsonrpc.NewInvalidParamsError(err.Error()))
 						return
 					}
+
+					w.Send(notifier.ID(), nil)
 					sub, done := T.store.On()
 					defer done()
-					w.Send(notifier.ID(), nil)
 					for {
 						select {
 						case <-r.Context().Done():
