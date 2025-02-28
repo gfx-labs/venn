@@ -64,11 +64,11 @@ func New(params LimiterParams) LimiterResult {
 	ctx, cn := context.WithCancel(context.Background())
 	params.Lc.Append(fx.Hook{
 		OnStart: func(_ context.Context) error {
-			limiter.entries = gtrs.NewStream[Entry](params.Redis.C(), limiter.streamKey, &gtrs.Options{
+			limiter.entries = gtrs.NewStream[Entry](params.Redis.R(), limiter.streamKey, &gtrs.Options{
 				MaxLen: 1280,
 			})
 
-			cs := gtrs.NewConsumer[Entry](ctx, params.Redis.C(), map[string]string{
+			cs := gtrs.NewConsumer[Entry](ctx, params.Redis.R(), map[string]string{
 				limiter.streamKey: "$",
 			})
 

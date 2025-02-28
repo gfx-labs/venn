@@ -11,9 +11,10 @@ import (
 
 	"gfx.cafe/util/go/fxplus"
 	"github.com/go-redsync/redsync/v4"
-	"github.com/go-redsync/redsync/v4/redis/goredis/v9"
+	redsyncrueidis "github.com/go-redsync/redsync/v4/redis/rueidis"
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
+	"github.com/redis/rueidis"
+	"github.com/redis/rueidis/rueidiscompat"
 )
 
 type spawnedCtx struct {
@@ -26,7 +27,7 @@ type spawnedCtx struct {
 type RedilockStrategy struct {
 	log       *slog.Logger
 	namespace string
-	redis     redis.UniversalClient
+	redis     rueidiscompat.Cmdable
 
 	members map[string]Member
 	id      uuid.UUID
@@ -82,14 +83,15 @@ func (m *RedilockStrategy) Join(ctx context.Context) error {
 
 func NewRedilockStrategy(
 	namespacePrefix string,
-	client redis.UniversalClient,
+	client rueidis.Client,
 	logger *slog.Logger,
 ) *RedilockStrategy {
+	compat := rueidiscompat.NewAdapter(client)
 	m := &RedilockStrategy{
 		log:   logger,
-		redis: client,
+		redis: compat,
 	}
-	rs := redsync.New(goredis.NewPool(client))
+	rs := redsync.New(redsyncrueidis.NewPool(compat))
 	m.leaderLock = rs.NewMutex(fmt.Sprintf("venn:%s:leader:redsync", namespacePrefix))
 	m.id = uuid.New()
 	return m

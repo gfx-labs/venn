@@ -57,7 +57,7 @@ func New(p Params) (o Result, err error) {
 	case "redilock", "redsync", "redis":
 		o.Election.strategy = election.NewRedilockStrategy(
 			p.Redis.Namespace(),
-			p.Redis.C(),
+			p.Redis.R(),
 			logger,
 		)
 	case "alwaysleader":

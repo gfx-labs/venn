@@ -3,17 +3,19 @@ package redi
 import (
 	"context"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
+	"github.com/redis/rueidis"
+	"github.com/redis/rueidis/rueidiscompat"
 	"go.uber.org/fx"
 
 	"gfx.cafe/gfx/venn/lib/config"
 )
 
 type Redis struct {
-	c   *redis.Client
+	c   rueidis.Client
 	cfg *config.Redis
 }
 
@@ -45,9 +47,16 @@ func New(params RedisParams) (res RedisResult, err error) {
 		if err := mr.Start(); err != nil {
 			return res, err
 		}
-		r.c = redis.NewClient(&redis.Options{
-			Addr: mr.Addr(),
+		r.c, err = rueidis.NewClient(rueidis.ClientOption{
+			ForceSingleClient: true,
+			InitAddress: []string{
+				mr.Addr(),
+			},
+			DisableCache: true,
 		})
+		if err != nil {
+			return res, err
+		}
 
 		params.Lc.Append(fx.Hook{
 			OnStart: func(ctx context.Context) error {
@@ -68,23 +77,25 @@ func New(params RedisParams) (res RedisResult, err error) {
 				return nil
 			},
 			OnStop: func(_ context.Context) error {
-				if err := r.c.Close(); err != nil {
-					return err
-				}
+				r.c.Close()
 				mr.Close()
 				return nil
 			},
 		})
 	} else {
-		opts, err := redis.ParseURL(string(params.Config.URI))
+		opts, err := rueidis.ParseURL(string(params.Config.URI))
 		if err != nil {
 			return res, err
 		}
-		params.Log.Info("connecting to redis", "addr", opts.Addr, "user", opts.Username)
-		r.c = redis.NewClient(opts)
+		params.Log.Info("connecting to redis", "addr", opts.InitAddress, "user", opts.Username)
+		r.c, err = rueidis.NewClient(opts)
+		if err != nil {
+			return res, err
+		}
 		params.Lc.Append(fx.Hook{
 			OnStop: func(_ context.Context) error {
-				return r.c.Close()
+				r.c.Close()
+				return nil
 			},
 		})
 	}
@@ -93,11 +104,15 @@ func New(params RedisParams) (res RedisResult, err error) {
 	}, nil
 }
 
-func (r *Redis) C() *redis.Client {
+func (r *Redis) C() rueidiscompat.Cmdable {
+	return rueidiscompat.NewAdapter(r.c)
+}
+
+func (r *Redis) R() rueidis.Client {
 	return r.c
 }
 
-var compareAndSwapIfGreaterScript = redis.NewScript(`
+var compareAndSwapIfGreaterScript = rueidis.NewLuaScript(`
 redis.replicate_commands()
 
 local old = tonumber(redis.call('GET', KEYS[1]))
@@ -111,17 +126,17 @@ return old
 `)
 
 // CompareAndSwapIfGreater sets the value at key to new if new is greater. Returns the old value.
-func (r *Redis) CompareAndSwapIfGreater(ctx context.Context, key string, new int) (int, error) {
-	res, err := compareAndSwapIfGreaterScript.Run(
+func (r *Redis) CompareAndSwapIfGreater(ctx context.Context, key string, next int) (int, error) {
+	res, err := compareAndSwapIfGreaterScript.Exec(
 		ctx,
-		r.C(),
+		r.R(),
 		[]string{key},
-		new,
-	).Result()
+		[]string{strconv.Itoa(next)},
+	).AsInt64()
 	if err != nil {
 		return 0, err
 	}
-	return int(res.(int64)), nil
+	return int(res), nil
 }
 
 func (r *Redis) Namespace() string {

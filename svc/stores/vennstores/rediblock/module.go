@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strconv"
 
 	"gfx.cafe/util/go/generic"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/redis/go-redis/v9"
+	"github.com/redis/rueidis"
+	"github.com/redis/rueidis/rueidiscompat"
 	"go.uber.org/fx"
 
 	"gfx.cafe/gfx/venn/lib/config"
@@ -59,7 +61,7 @@ func New(params Params) (r Result, err error) {
 	return
 }
 
-var checkReorgScript = redis.NewScript(`
+var checkReorgScript = rueidis.NewLuaScript(`
 	for i, key in ipairs(KEYS) do
 		local actual = redis.call('GET', key)
 		local expected = ARGV[i]
@@ -72,7 +74,7 @@ var checkReorgScript = redis.NewScript(`
 	return ""
 `)
 
-var addEntriesScript = redis.NewScript(`
+var addEntriesScript = rueidis.NewLuaScript(`
 	redis.replicate_commands()
 
 	local head = tonumber(redis.call('GET', KEYS[1]))
@@ -163,7 +165,7 @@ func (s *Rediblock) Get(ctx context.Context, typ blockstore.EntryType, query blo
 
 		pipeline := s.redi.C().Pipeline()
 
-		commands := make([]*redis.StringCmd, 0, (q.End-q.Start+1)*2)
+		commands := make([]*rueidiscompat.StringCmd, 0, (q.End-q.Start+1)*2)
 		for i := q.Start; i <= q.End; i++ {
 			commands = append(commands,
 				pipeline.Get(ctx,
@@ -205,7 +207,7 @@ func (s *Rediblock) reorg(ctx context.Context) error {
 
 	keys, err := s.redi.C().Keys(ctx, fmt.Sprintf("%s:entries:by_number:*", s.namespace())).Result()
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
+		if errors.Is(err, rueidiscompat.Nil) {
 			err = nil
 		}
 		return err
@@ -216,24 +218,24 @@ func (s *Rediblock) reorg(ctx context.Context) error {
 
 func (s *Rediblock) Put(ctx context.Context, typ blockstore.EntryType, entries ...*blockstore.Entry) error {
 	keys := make([]string, 0, len(entries)*4+1)
-	values := make([]any, 0, len(entries)*3+1)
+	values := make([]string, 0, len(entries)*3+1)
 
 	keys = append(keys,
 		fmt.Sprintf("%s:head", s.namespace()),
 	)
 
 	values = append(values,
-		int(math.Max(1, s.chain.BlockTimeSeconds)),
+		strconv.Itoa(int(math.Max(1, s.chain.BlockTimeSeconds))),
 	)
 
 	var reorgKeys []string
-	var reorgValues []any
+	var reorgValues []string
 
 	for _, entry := range entries {
 		if entry.ParentHash != nil {
 			if reorgKeys == nil {
 				reorgKeys = make([]string, 0, len(entries))
-				reorgValues = make([]any, 0, len(entries))
+				reorgValues = make([]string, 0, len(entries))
 			}
 
 			reorgKeys = append(reorgKeys,
@@ -251,15 +253,15 @@ func (s *Rediblock) Put(ctx context.Context, typ blockstore.EntryType, entries .
 			fmt.Sprintf("%s:entries:by_number:%d:%d:hash", s.namespace(), typ, uint64(entry.BlockNumber)),
 		)
 		values = append(values,
-			[]byte(entry.Value),
-			uint64(entry.BlockNumber),
+			string([]byte(entry.Value)),
+			strconv.Itoa(int(entry.BlockNumber)),
 			entry.BlockHash.Hex(),
 		)
 	}
 
 	// check for reorgs
 	if len(reorgKeys) != 0 {
-		reorg, err := checkReorgScript.Run(ctx, s.redi.C(), reorgKeys, reorgValues...).Text()
+		reorg, err := checkReorgScript.Exec(ctx, s.redi.R(), reorgKeys, reorgValues).ToString()
 		if err != nil {
 			return err
 		}
@@ -270,9 +272,9 @@ func (s *Rediblock) Put(ctx context.Context, typ blockstore.EntryType, entries .
 		}
 	}
 
-	err := addEntriesScript.Run(ctx, s.redi.C(), keys, values...).Err()
-	if errors.Is(err, redis.Nil) {
-		err = nil
+	_, err := addEntriesScript.Exec(ctx, s.redi.R(), keys, values).ToMessage()
+	if err != nil {
+		return err
 	}
 
 	return err
