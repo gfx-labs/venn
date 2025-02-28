@@ -1,6 +1,6 @@
 import { createPublicClient, webSocket} from "viem"
 
-const chains = ["hyperevm", "seievm"]
+const chains = ["hyperevm"]
 //const chains = ["polygon"]
 
 const venn_url = process.env.VENN_URL || `localhost:8545`
@@ -15,9 +15,9 @@ const provider = Object.fromEntries(chains.map((x)=>{
 
 chains.forEach((n)=>{
   const subClient = provider[n].transport.subscribe({
-    params:["logs" as any, {} as any],
+    params:["newHeads"],
     onData: (x)=>{
-      console.log(n, x.result, new Date())
+      console.log(n, x.result.number, new Date())
     }
   }).catch(console.error)
 })

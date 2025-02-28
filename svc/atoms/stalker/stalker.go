@@ -1,8 +1,10 @@
 package stalker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"time"
@@ -136,9 +138,15 @@ func (T *Stalker) tick(ctx context.Context) (time.Duration, error) {
 	// ask for the latest block
 	var block json.RawMessage
 	if err := jrpcutil.Do(ctx, T.remote, &block, "eth_getBlockByNumber", []any{"latest", false}); err != nil {
-		return blockTime, err
+		return blockTime, fmt.Errorf("get latest block: %w", err)
 	}
 	now := time.Now()
+
+	// returned null for latest block, so probably some node is running behind.
+	// wait one blockTime and try again
+	if bytes.Equal(block, []byte("null")) {
+		return blockTime, nil
+	}
 
 	// extract block number and timestamp
 	var head struct {

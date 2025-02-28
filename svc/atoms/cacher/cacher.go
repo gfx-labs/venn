@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
@@ -272,7 +273,11 @@ func (T *Cacher) ServeRPC(w jrpc.ResponseWriter, r *jrpc.Request) {
 			}
 
 			if !details {
-				_ = w.Send(T.removeTransactionDetails(entries[0].Value))
+				ans, err := T.removeTransactionDetails(entries[0].Value)
+				if err != nil {
+					err = fmt.Errorf("failed removing transaction details: %w", err)
+				}
+				_ = w.Send(ans, err)
 				return
 			}
 
@@ -283,7 +288,7 @@ func (T *Cacher) ServeRPC(w jrpc.ResponseWriter, r *jrpc.Request) {
 		// otherwise, proxy back to the remote
 		var block json.RawMessage
 		if err := jrpcutil.Do(r.Context(), T.remote, &block, "eth_getBlockByNumber", []any{blockNumber, true}); err != nil {
-			_ = w.Send(nil, err)
+			_ = w.Send(nil, fmt.Errorf("getting block from remote: %w", err))
 			return
 		}
 
@@ -307,8 +312,11 @@ func (T *Cacher) ServeRPC(w jrpc.ResponseWriter, r *jrpc.Request) {
 			return
 		}
 
-		if !details {
+		if !details && !bytes.Equal(block, []byte("null")) {
 			raw, err := T.removeTransactionDetails(block)
+			if err != nil {
+				err = fmt.Errorf("failed to remove transaction details: %w", err)
+			}
 			_ = w.Send(raw, err)
 			return
 		}
@@ -350,7 +358,11 @@ func (T *Cacher) ServeRPC(w jrpc.ResponseWriter, r *jrpc.Request) {
 		}
 
 		if !details {
-			_ = w.Send(T.removeTransactionDetails(entries[0].Value))
+			raw, err := T.removeTransactionDetails(entries[0].Value)
+			if err != nil {
+				err = fmt.Errorf("failed to remove transaction details: %w", err)
+			}
+			_ = w.Send(raw, err)
 			return
 		}
 
@@ -420,8 +432,11 @@ func (T *Cacher) ServeRPC(w jrpc.ResponseWriter, r *jrpc.Request) {
 		}
 
 		filter := ethtypes.CompileFilter(params[0].Addresses, params[0].Topics)
-
-		_ = w.Send(T.filterLogs(filter, logs))
+		raw, err := T.filterLogs(filter, logs)
+		if err != nil {
+			err = fmt.Errorf("failed to filter logs: %w", err)
+		}
+		_ = w.Send(raw, err)
 		return
 	default:
 		T.remote.ServeRPC(w, r)

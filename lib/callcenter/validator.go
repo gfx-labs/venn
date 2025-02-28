@@ -89,6 +89,9 @@ func (*Validator) extractBlockTimeAndTimestamp(block any) (hexutil.Uint64, time.
 	case *ethtypes.TruncatedBlockHeader:
 		return b.Number, time.Unix(int64(b.Timestamp), 0), nil
 	case json.RawMessage:
+		if string(b) == "null" {
+			return 0, time.Time{}, ErrHeadOld
+		}
 		d := jx.DecodeBytes(b)
 		obj, err := d.ObjIter()
 		if err != nil {
