@@ -145,6 +145,9 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 				return
 			}
 
+			// all good, so we can send the id
+			w.Send(notifier.ID(), nil)
+
 			switch method {
 			case "newHeads":
 				{
