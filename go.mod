@@ -15,7 +15,6 @@ require (
 	github.com/ethereum/go-ethereum v1.14.12
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-faster/jx v1.1.0
-	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-redsync/redsync/v4 v4.12.1
 	github.com/gocql/gocql v1.6.0
 	github.com/google/cel-go v0.20.1
@@ -71,7 +70,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
