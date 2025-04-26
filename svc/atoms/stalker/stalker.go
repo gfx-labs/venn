@@ -65,37 +65,35 @@ func New(p Params) (r Result, err error) {
 	remote := p.Cacher.Middleware(p.Clusters.Middleware(nil))
 	for _, c := range p.Chains {
 		chain := c
-		if !chain.ParsedStalk {
-			continue
-		}
 		blockTime := time.Duration(chain.BlockTimeSeconds * float64(time.Second))
 		s.dt[chain.Name] = newDelayTracker(128, 0, int(blockTime))
-		p.Lc.Append(fx.Hook{
-			OnStart: func(_ context.Context) error {
-				go s.start(chain, remote)
-				return nil
-			},
-		})
-
 	}
+	p.Lc.Append(fx.Hook{
+		OnStart: func(_ context.Context) error {
+			go s.election.RunWithLease(
+				s.ctx,
+				s.log.With("module", "stalker"),
+				func(ctx context.Context) {
+					for _, chain := range p.Chains {
+						if !chain.ParsedStalk {
+							continue
+						}
+						go s.stalk(ctx, chain, remote)
+					}
+					<-ctx.Done()
+				},
+				func(ctx context.Context) {
+					<-ctx.Done()
+				},
+			)
+			return nil
+		},
+	})
 	return
 }
 
-func (T *Stalker) start(chain *config.Chain, remote jrpc.Handler) {
-	T.election.RunWithLease(
-		T.ctx,
-		T.log.With("module", "stalker"),
-		func(ctx context.Context) {
-			T.stalk(ctx, chain, remote)
-		},
-		func(ctx context.Context) {
-			<-ctx.Done()
-		},
-	)
-}
-
 func (T *Stalker) stalk(ctx context.Context, chain *config.Chain, remote jrpc.Handler) {
-	// set the chain context for the requets
+	// set the chain context for the requests
 	ctx = subctx.WithChain(ctx, chain)
 	for {
 		waitfor, err := T.tick(ctx, chain, remote)
@@ -170,8 +168,10 @@ func (T *Stalker) tick(ctx context.Context, chain *config.Chain, remote jrpc.Han
 		stalkerLabel := prom.StalkerLabel{
 			Chain: chain.Name,
 		}
-		prom.Stalker.BlockPropogationDelay(stalkerLabel).Observe(float64(propDelay))
-		prom.Stalker.PropogationDelayMean(stalkerLabel).Set(float64(meanPropDelay.Milliseconds()))
+		prom.Stalker.BlockPropagationDelay(stalkerLabel).Observe(float64(propDelay))
+		prom.Stalker.PropagationDelayMean(stalkerLabel).Set(float64(meanPropDelay.Milliseconds()))
+		// update the head block metric
+		prom.Stalker.HeadBlock(stalkerLabel).Set(float64(head.BlockNumber))
 
 		T.log.Debug("received new block",
 			"chain", chain.Name,

@@ -113,7 +113,7 @@ func NewHeadLogger(params HeadLoggerParams) {
 	params.Lc.Append(fx.Hook{
 		OnStart: func(_ context.Context) error {
 			go func() {
-				ticker := time.NewTicker(5 * time.Second)
+				ticker := time.NewTicker(30 * time.Second)
 				defer ticker.Stop()
 				for {
 					select {

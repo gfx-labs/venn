@@ -41,6 +41,7 @@ type StalkerLabel struct {
 }
 
 var Stalker struct {
-	PropogationDelayMean  func(label StalkerLabel) prometheus.Gauge     `name:"propogation_delay_ms" help:"the mean propogation delay for the chain"`
-	BlockPropogationDelay func(label StalkerLabel) prometheus.Histogram `name:"block_propagation_delay_ms" help:"the delay of propogation for the blocks" buckets:"1,10,50,100,250,500,1000,2000,3000,4000,5000,6000,8000,9000,10000,12000,24000,30000"`
+	PropagationDelayMean  func(label StalkerLabel) prometheus.Gauge     `name:"propagation_delay_ms" help:"the mean propogation delay for the chain"`
+	BlockPropagationDelay func(label StalkerLabel) prometheus.Histogram `name:"block_propagation_delay_ms" help:"the delay of propogation for the blocks" buckets:"1,10,50,100,250,500,1000,2000,3000,4000,5000,6000,8000,9000,10000,12000,24000,30000"`
+	HeadBlock             func(label StalkerLabel) prometheus.Gauge     `name:"stalker_head_block" help:"the head block for the chain"`
 }
