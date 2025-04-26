@@ -8,56 +8,56 @@ import (
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/ethtypes"
 	"gfx.cafe/gfx/venn/lib/stores/headstore"
+	"gfx.cafe/gfx/venn/lib/subctx"
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 )
 
 type blockLookBackRemote struct {
-	callcenter.Remote
-
 	cfg       *config.Remote
 	next      callcenter.Remote
 	headStore headstore.Store
 }
 
-func New(cfg *config.Remote, headStore headstore.Store, next callcenter.Remote) callcenter.Remote {
+func New(cfg *config.Remote, headStore headstore.Store) callcenter.Middleware {
 	return &blockLookBackRemote{
 		cfg:       cfg,
 		headStore: headStore,
-		next:      next,
 	}
 }
 
-func (m *blockLookBackRemote) ServeRPC(w jrpc.ResponseWriter, r *jrpc.Request) {
-	var err error
+func (m *blockLookBackRemote) Middleware(next jrpc.Handler) jrpc.Handler {
+	return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
 
-	switch r.Method {
-	case "eth_getBlockByNumber", "eth_getTransactionByBlockNumberAndIndex":
-		err = m.check2Param(r, 0)
-	case "eth_getTransactionCount":
-		err = m.check2Param(r, 1)
-	case "eth_getBlockReceipts", "eth_getBlockTransactionCountByNumber",
-		"eth_getUncleCountByBlockNumber", "debug_getRawHeader",
-		"debug_getRawBlock":
-		err = m.check1Param(r)
-	case "eth_getLogs":
-		err = m.checkGetLogs(r)
-	}
+		var err error
+		switch r.Method {
+		case "eth_getBlockByNumber", "eth_getTransactionByBlockNumberAndIndex":
+			err = m.check2Param(r, 0)
+		case "eth_getTransactionCount":
+			err = m.check2Param(r, 1)
+		case "eth_getBlockReceipts", "eth_getBlockTransactionCountByNumber",
+			"eth_getUncleCountByBlockNumber", "debug_getRawHeader",
+			"debug_getRawBlock":
+			err = m.check1Param(r)
+		case "eth_getLogs":
+			err = m.checkGetLogs(r)
+		}
 
-	if err != nil {
-		_ = w.Send(nil, err)
-		return
-	}
+		if err != nil {
+			_ = w.Send(nil, err)
+			return
+		}
 
-	m.next.ServeRPC(w, r)
-}
-
-func (m *blockLookBackRemote) Close() error {
-	return m.next.Close()
+		next.ServeRPC(w, r)
+	})
 }
 
 func (m *blockLookBackRemote) validateBlockNumber(ctx context.Context, blockNumber ethtypes.BlockNumber) error {
-	head, err := m.headStore.Get(ctx)
+	chain, err := subctx.GetChain(ctx)
+	if err != nil {
+		return err
+	}
+	head, err := m.headStore.Get(ctx, chain)
 	if err != nil {
 		return err
 	}

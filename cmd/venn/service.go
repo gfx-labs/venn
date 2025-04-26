@@ -3,22 +3,19 @@ package main
 import (
 	"context"
 	"errors"
+	"gfx.cafe/gfx/venn/lib/subctx"
 	"log/slog"
 	"net"
 	"net/http"
-	"slices"
 	"time"
 
+	"gfx.cafe/gfx/venn/lib/config"
+	"gfx.cafe/gfx/venn/lib/jrpcutil"
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/contrib/extension/subscription"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/fx"
-	"golang.org/x/exp/maps"
-
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
-	"gfx.cafe/gfx/venn/lib/util"
 )
 
 type HttpRouterParams struct {
@@ -105,10 +102,11 @@ func NewSubscriptionEngine() SubscriptionEngineResult {
 type HeadLoggerParams struct {
 	fx.In
 
-	Ctx       context.Context
-	Log       *slog.Logger
-	Lc        fx.Lifecycle
-	Providers util.Multichain[jrpc.Handler]
+	Ctx      context.Context
+	Log      *slog.Logger
+	Lc       fx.Lifecycle
+	Provider jrpc.Handler
+	Chains   map[string]*config.Chain
 }
 
 func NewHeadLogger(params HeadLoggerParams) {
@@ -122,7 +120,7 @@ func NewHeadLogger(params HeadLoggerParams) {
 					case <-params.Ctx.Done():
 						return
 					case <-ticker.C:
-						logHeads(params.Ctx, params.Log, params.Providers)
+						logHeads(params.Ctx, params.Log, params.Chains, params.Provider)
 					}
 				}
 			}()
@@ -131,21 +129,14 @@ func NewHeadLogger(params HeadLoggerParams) {
 	})
 }
 
-func logHeads(ctx context.Context, log *slog.Logger, clusters util.Multichain[jrpc.Handler]) {
-	chains := maps.Keys(clusters)
-	slices.Sort(chains)
-	if len(chains) > 1 {
-		log.Info("HEAD")
-	}
+func logHeads(ctx context.Context, log *slog.Logger, chains map[string]*config.Chain, handler jrpc.Handler) {
 	for _, chain := range chains {
-		c := clusters[chain]
 		var number hexutil.Uint64
-		if number == 0 {
-			if err := jrpcutil.Do(ctx, c, &number, "eth_blockNumber", nil); err != nil {
-				log.Error("logging head", "err", err)
-				continue
-			}
+		cctx := subctx.WithChain(ctx, chain)
+		if err := jrpcutil.Do(cctx, handler, &number, "eth_blockNumber", nil); err != nil {
+			log.Error("logging head", "err", err)
+			continue
 		}
-		log.Info("HEAD", "chain", chain, "block", int(number))
+		log.Info("Head Block", "chain", chain.Name, "block", int(number))
 	}
 }

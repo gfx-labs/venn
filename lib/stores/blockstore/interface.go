@@ -3,6 +3,7 @@ package blockstore
 import (
 	"context"
 	"encoding/json"
+	"gfx.cafe/gfx/venn/lib/config"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -54,6 +55,6 @@ func QueryNumber(n hexutil.Uint64) QueryRange {
 }
 
 type Store interface {
-	Get(ctx context.Context, typ EntryType, query Query) ([]*Entry, error)
-	Put(ctx context.Context, typ EntryType, entries ...*Entry) error
+	Get(ctx context.Context, chain *config.Chain, typ EntryType, query Query) ([]*Entry, error)
+	Put(ctx context.Context, chain *config.Chain, typ EntryType, entries ...*Entry) error
 }

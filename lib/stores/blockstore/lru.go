@@ -3,6 +3,7 @@ package blockstore
 import (
 	"context"
 	"errors"
+	"gfx.cafe/gfx/venn/lib/config"
 	"sync"
 
 	"gfx.cafe/util/go/generic"
@@ -14,11 +15,13 @@ import (
 type lruNumberKey struct {
 	Type        EntryType
 	BlockNumber hexutil.Uint64
+	Chain       string
 }
 
 type lruHashKey struct {
 	Type      EntryType
 	BlockHash common.Hash
+	Chain     string
 }
 
 type LruStore struct {
@@ -38,7 +41,7 @@ func NewLruStore(size int) *LruStore {
 	}
 }
 
-func (T *LruStore) Get(_ context.Context, typ EntryType, query Query) ([]*Entry, error) {
+func (T *LruStore) Get(_ context.Context, chain *config.Chain, typ EntryType, query Query) ([]*Entry, error) {
 	T.mu.Lock()
 	defer T.mu.Unlock()
 
@@ -47,6 +50,7 @@ func (T *LruStore) Get(_ context.Context, typ EntryType, query Query) ([]*Entry,
 		entry, ok := T.byHash.Get(lruHashKey{
 			Type:      typ,
 			BlockHash: common.Hash(q),
+			Chain:     chain.Name,
 		})
 		if !ok {
 			return nil, errors.New("not found")
@@ -59,6 +63,7 @@ func (T *LruStore) Get(_ context.Context, typ EntryType, query Query) ([]*Entry,
 			entry, ok := T.byNumber.Get(lruNumberKey{
 				Type:        typ,
 				BlockNumber: i,
+				Chain:       chain.Name,
 			})
 			if !ok {
 				return nil, errors.New("not found")
@@ -72,7 +77,7 @@ func (T *LruStore) Get(_ context.Context, typ EntryType, query Query) ([]*Entry,
 	}
 }
 
-func (T *LruStore) Put(_ context.Context, typ EntryType, entries ...*Entry) error {
+func (T *LruStore) Put(_ context.Context, chain *config.Chain, typ EntryType, entries ...*Entry) error {
 	T.mu.Lock()
 	defer T.mu.Unlock()
 	for _, entry := range entries {
@@ -81,6 +86,7 @@ func (T *LruStore) Put(_ context.Context, typ EntryType, entries ...*Entry) erro
 			if prev, ok := T.byNumber.Get(lruNumberKey{
 				Type:        typ,
 				BlockNumber: entry.BlockNumber - 1,
+				Chain:       chain.Name,
 			}); ok {
 				if prev.BlockHash != *entry.ParentHash {
 					T.byNumber.Purge()
@@ -91,10 +97,12 @@ func (T *LruStore) Put(_ context.Context, typ EntryType, entries ...*Entry) erro
 		T.byHash.Add(lruHashKey{
 			Type:      typ,
 			BlockHash: entry.BlockHash,
+			Chain:     chain.Name,
 		}, entry)
 		T.byNumber.Add(lruNumberKey{
 			Type:        typ,
 			BlockNumber: entry.BlockNumber,
+			Chain:       chain.Name,
 		}, entry)
 	}
 

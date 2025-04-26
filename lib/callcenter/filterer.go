@@ -23,12 +23,7 @@ func (T *Filterer) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 		_ = w.Send(nil, ErrMethodNotAllowed)
 		return
 	}
-
 	T.remote.ServeRPC(w, r)
-}
-
-func (T *Filterer) Close() error {
-	return T.remote.Close()
 }
 
 var _ Remote = (*Filterer)(nil)

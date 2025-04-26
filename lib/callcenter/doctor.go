@@ -146,7 +146,7 @@ func (T *Doctor) Close() error {
 		return net.ErrClosed
 	default:
 		T.cn()
-		return T.remote.Close()
+		return nil
 	}
 }
 

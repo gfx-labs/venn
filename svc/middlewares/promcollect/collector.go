@@ -65,7 +65,7 @@ func (T *Collector) Middleware(fn jrpc.Handler) jrpc.Handler {
 			}
 
 			label := prom.RequestLabel{
-				Chain:   chain,
+				Chain:   chain.Name,
 				Method:  r.Method,
 				Success: icept.Error == nil,
 			}

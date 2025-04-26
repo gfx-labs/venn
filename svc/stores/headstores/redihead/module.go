@@ -6,7 +6,6 @@ import (
 	"log"
 	"log/slog"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/dranikpg/gtrs"
@@ -15,12 +14,12 @@ import (
 
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/stores/headstore"
-	"gfx.cafe/gfx/venn/lib/util"
 	"gfx.cafe/gfx/venn/svc/services/redi"
 )
 
 type Head struct {
 	Value uint64
+	Chain string
 }
 
 type Params struct {
@@ -35,21 +34,19 @@ type Params struct {
 type Result struct {
 	fx.Out
 
-	Result Rediheads `optional:"true"`
+	Result *Redihead `optional:"true"`
 }
 
-type Rediheads = util.Multichain[*Redihead]
-
 type Redihead struct {
-	chain  *config.Chain
 	log    *slog.Logger
 	redi   *redi.Redis
 	ctx    context.Context
 	stream gtrs.Stream[Head]
 
-	head atomic.Uint64
+	head   map[string]uint64
+	headMu sync.RWMutex
 
-	subs map[int]chan<- hexutil.Uint64
+	subs map[string]map[int]chan<- hexutil.Uint64
 	next int
 	mu   sync.Mutex
 }
@@ -59,54 +56,62 @@ func New(params Params) (r Result, err error) {
 		params.Log.Info("redihead disabled", "reason", "no redis")
 		return
 	}
-	r.Result, err = util.MakeMultichain(
-		params.Chains,
-		func(chain *config.Chain) (*Redihead, error) {
-			stream := gtrs.NewStream[Head](
-				params.Redi.C(),
-				fmt.Sprintf("venn:%s:%s:head:stream", params.Redi.Namespace(), chain.Name),
-				nil,
-			)
 
-			redihead := &Redihead{
-				chain:  chain,
-				log:    params.Log,
-				ctx:    params.Ctx,
-				redi:   params.Redi,
-				stream: stream,
-			}
-
-			go redihead.start()
-
-			return redihead, nil
-		},
+	stream := gtrs.NewStream[Head](
+		params.Redi.C(),
+		fmt.Sprintf("venn:%s:head:stream", params.Redi.Namespace()),
+		nil,
 	)
+	r.Result = &Redihead{
+		log:    params.Log,
+		ctx:    params.Ctx,
+		redi:   params.Redi,
+		stream: stream,
+		head:   make(map[string]uint64),
+	}
+	go r.Result.start()
 	return
 }
 
-func (T *Redihead) Get(ctx context.Context) (hexutil.Uint64, error) {
-	return hexutil.Uint64(T.head.Load()), nil
+func (T *Redihead) Get(ctx context.Context, chain *config.Chain) (hexutil.Uint64, error) {
+	T.headMu.RLock()
+	defer T.headMu.RUnlock()
+	val, ok := T.head[chain.Name]
+	if !ok {
+		val = 0
+	}
+	return hexutil.Uint64(val), nil
 }
 
-func (T *Redihead) Put(ctx context.Context, head hexutil.Uint64) (hexutil.Uint64, error) {
-	was, err := T.Get(ctx)
+func (T *Redihead) Put(ctx context.Context, chain *config.Chain, head hexutil.Uint64) (hexutil.Uint64, error) {
+	was, err := T.Get(ctx, chain)
 	if err != nil {
 		return 0, err
 	}
 	_, err = T.stream.Add(ctx, Head{
 		Value: uint64(head),
+		Chain: chain.Name,
 	})
 	return was, err
 }
 
-func (T *Redihead) setHead(head uint64) {
-	T.head.Store(head)
-
+func (T *Redihead) setHead(chainName string, head uint64) {
+	T.headMu.Lock()
+	cur := T.head[chainName]
+	if head <= cur {
+		T.headMu.Unlock()
+		return
+	}
+	T.head[chainName] = head
+	T.headMu.Unlock()
 	func() {
 		T.mu.Lock()
 		defer T.mu.Unlock()
-
-		for _, sub := range T.subs {
+		chainSubs, ok := T.subs[chainName]
+		if !ok {
+			return
+		}
+		for _, sub := range chainSubs {
 			select {
 			case sub <- hexutil.Uint64(head):
 			default:
@@ -129,7 +134,7 @@ func (T *Redihead) run(ctx context.Context) {
 
 	var start string
 	if len(messages) > 0 {
-		T.setHead(messages[0].Data.Value)
+		T.setHead(messages[0].Data.Chain, messages[0].Data.Value)
 		start = messages[0].ID
 	} else {
 		start = "$"
@@ -140,7 +145,7 @@ func (T *Redihead) run(ctx context.Context) {
 			ctx,
 			T.redi.C(),
 			gtrs.StreamIDs{
-				fmt.Sprintf("venn:%s:%s:head:stream", T.redi.Namespace(), T.chain.Name): start,
+				fmt.Sprintf("venn:%s:head:stream", T.redi.Namespace()): start,
 			},
 		)
 		defer consumer.Close()
@@ -160,7 +165,7 @@ func (T *Redihead) run(ctx context.Context) {
 					continue
 				}
 
-				T.setHead(msg.Data.Value)
+				T.setHead(msg.Data.Chain, msg.Data.Value)
 			}
 		}
 	}
@@ -171,7 +176,6 @@ func (T *Redihead) run(ctx context.Context) {
 func (T *Redihead) start() {
 	for {
 		T.run(T.ctx)
-
 		select {
 		case <-T.ctx.Done():
 			return
@@ -180,7 +184,7 @@ func (T *Redihead) start() {
 	}
 }
 
-func (T *Redihead) On() (<-chan hexutil.Uint64, func()) {
+func (T *Redihead) On(chain *config.Chain) (<-chan hexutil.Uint64, func()) {
 	T.mu.Lock()
 	defer T.mu.Unlock()
 
@@ -188,17 +192,19 @@ func (T *Redihead) On() (<-chan hexutil.Uint64, func()) {
 	T.next++
 
 	if T.subs == nil {
-		T.subs = make(map[int]chan<- hexutil.Uint64)
+		T.subs = make(map[string]map[int]chan<- hexutil.Uint64)
+	}
+	if _, ok := T.subs[chain.Name]; !ok {
+		T.subs[chain.Name] = make(map[int]chan<- hexutil.Uint64)
 	}
 	sub := make(chan hexutil.Uint64, 1)
-	T.subs[id] = sub
-
+	T.subs[chain.Name][id] = sub
 	return sub, func() {
 		T.mu.Lock()
 		defer T.mu.Unlock()
 
-		if _, ok := T.subs[id]; ok {
-			delete(T.subs, id)
+		if _, ok := T.subs[chain.Name][id]; ok {
+			delete(T.subs[chain.Name], id)
 			close(sub)
 		}
 	}
