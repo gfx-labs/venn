@@ -3,6 +3,7 @@ package cluster
 import (
 	"context"
 	"gfx.cafe/gfx/venn/lib/subctx"
+	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"io"
 	"log/slog"
@@ -63,6 +64,10 @@ func New(params Params) (r Result, err error) {
 							for key, value := range cfg.Headers {
 								cc.SetHeader(key, value)
 							}
+						case *websocket.Client:
+							for key, value := range cfg.Headers {
+								cc.SetHeader(key, value)
+							}
 						}
 						return c, nil
 					})
@@ -80,35 +85,29 @@ func New(params Params) (r Result, err error) {
 					)*/
 
 					if cfg.SendDataAndInput {
-						remote = callcenter.NewInputData(
-							remote,
-						)
+						remote = (&callcenter.InputData{}).Middleware(remote)
 					}
 
 					remote = callcenter.NewCollector(
-						remote,
 						chain.Name,
 						cfg.Name,
 						params.Prometheus,
-					)
+					).Middleware(remote)
 
 					remote = callcenter.NewLogger(
-						remote,
 						params.Log.With("remote", cfg.Name, "chain", cfg.Chain.Name),
-					)
+					).Middleware(remote)
 
 					remote = callcenter.NewBacker(
-						remote,
 						params.Log.With("remote", cfg.Name, "chain", cfg.Chain.Name),
 						cfg.ParsedRateLimitBackoff,
 						cfg.ParsedErrorBackoffMin,
 						cfg.ParsedErrorBackoffMax,
-					)
+					).Middleware(remote)
 
 					remote = callcenter.NewValidator(
-						remote,
 						max(time.Minute, time.Duration(float64(time.Second)*2*cfg.Chain.BlockTimeSeconds)),
-					)
+					).Middleware(remote)
 
 					remote = callcenter.NewDoctor(
 						remote,
@@ -120,17 +119,15 @@ func New(params Params) (r Result, err error) {
 
 					if cfg.RateLimit != nil {
 						remote = callcenter.NewRatelimiter(
-							remote,
 							rate.Limit(cfg.RateLimit.EventsPerSecond),
 							cfg.RateLimit.Burst,
-						)
+						).Middleware(remote)
 					} else {
 						// default values of 50/100
 						remote = callcenter.NewRatelimiter(
-							remote,
 							50,
 							100,
-						)
+						).Middleware(remote)
 					}
 
 					methods := make(map[string]bool)

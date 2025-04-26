@@ -42,7 +42,7 @@ func (o *StartNode) Run() error {
 		// utility services (universe)
 		fx.Provide(
 			fxplus.Component("venn"),
-			config.FileParser(o.ConfigFile),
+			config.NodeFileParser(o.ConfigFile),
 			NewHttpRouter,
 			NewHttpServer,
 			fxplus.Context,

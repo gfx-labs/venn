@@ -1,28 +1,24 @@
 package callcenter
 
 import (
+	"gfx.cafe/open/jrpc"
 	"log/slog"
-
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 )
 
 // Logger logs each request.
 type Logger struct {
-	remote Remote
 	logger *slog.Logger
 }
 
-func NewLogger(remote Remote, logger *slog.Logger) *Logger {
+func NewLogger(logger *slog.Logger) *Logger {
 	return &Logger{
-		remote: remote,
 		logger: logger,
 	}
 }
 
-func (T *Logger) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
-	T.remote.ServeRPC(w, r)
-
-	T.logger.Debug("handled request", "method", r.Method)
+func (T *Logger) Middleware(next jrpc.Handler) jrpc.Handler {
+	return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
+		next.ServeRPC(w, r)
+		T.logger.Debug("handled request", "method", r.Method)
+	})
 }
-
-var _ Remote = (*Logger)(nil)

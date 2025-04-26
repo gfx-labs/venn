@@ -2,11 +2,10 @@ package callcenter
 
 import (
 	"fmt"
+	"gfx.cafe/open/jrpc"
 	"log/slog"
 	"sync"
 	"time"
-
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
 	"gfx.cafe/gfx/venn/lib/util"
@@ -18,8 +17,6 @@ type Backer struct {
 	errorMinTimeout  time.Duration
 	errorMaxTimeout  time.Duration
 
-	remote Remote
-
 	log *slog.Logger
 
 	timer *time.Timer
@@ -30,17 +27,12 @@ type Backer struct {
 }
 
 func NewBacker(
-	remote Remote,
-
 	log *slog.Logger,
-
 	rateLimitTimeout time.Duration,
 	errorMinTimeout time.Duration,
 	errorMaxTimeout time.Duration,
 ) *Backer {
 	backer := &Backer{
-		remote: remote,
-
 		log: log,
 
 		rateLimitTimeout: rateLimitTimeout,
@@ -98,33 +90,33 @@ func (T *Backer) healthy() bool {
 	return T.happy
 }
 
-func (T *Backer) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
-	if !T.healthy() {
-		_ = w.Send(nil, ErrUnhealthy)
-		return
-	}
+func (T *Backer) Middleware(next jrpc.Handler) jrpc.Handler {
+	return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
+		if !T.healthy() {
+			_ = w.Send(nil, ErrUnhealthy)
+			return
+		}
 
-	var icept jrpcutil.Interceptor
-	T.remote.ServeRPC(&icept, r)
+		var icept jrpcutil.Interceptor
+		next.ServeRPC(&icept, r)
 
-	if icept.Error != nil {
-		if util.IsUserError(icept.Error) {
-			// node is ok
-			T.ok()
-		} else if util.IsTimeoutError(icept.Error) {
-			T.limit()
-		} else if util.IsNodeError(icept.Error) {
-			T.log.Error("node error", "type", fmt.Sprintf("%T", icept.Error), "error", icept.Error)
-			T.error()
+		if icept.Error != nil {
+			if util.IsUserError(icept.Error) {
+				// node is ok
+				T.ok()
+			} else if util.IsTimeoutError(icept.Error) {
+				T.limit()
+			} else if util.IsNodeError(icept.Error) {
+				T.log.Error("node error", "type", fmt.Sprintf("%T", icept.Error), "error", icept.Error)
+				T.error()
+			} else {
+				// unknown error, it's fine
+				T.ok()
+			}
 		} else {
-			// unknown error, it's fine
 			T.ok()
 		}
-	} else {
-		T.ok()
-	}
 
-	_ = w.Send(icept.Result, icept.Error)
+		_ = w.Send(icept.Result, icept.Error)
+	})
 }
-
-var _ Remote = (*Backer)(nil)

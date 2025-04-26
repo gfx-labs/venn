@@ -29,7 +29,7 @@ type NodeConfigResult struct {
 	Log *slog.Logger
 }
 
-func FileParser(file string) func() (NodeConfigResult, error) {
+func NodeFileParser(file string) func() (NodeConfigResult, error) {
 	return func() (NodeConfigResult, error) {
 		bts, err := os.ReadFile(file)
 		if err != nil {
@@ -37,7 +37,7 @@ func FileParser(file string) func() (NodeConfigResult, error) {
 		}
 
 		var cfg *NodeConfig
-		cfg, err = ParseConfig(file, bts)
+		cfg, err = ParseNodeConfig(file, bts)
 		if err != nil {
 			return NodeConfigResult{}, err
 		}
@@ -93,7 +93,7 @@ func FileParser(file string) func() (NodeConfigResult, error) {
 		return res, nil
 	}
 }
-func ParseConfig(file string, data []byte) (*NodeConfig, error) {
+func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 	c := &NodeConfig{}
 
 	err := yaml.Unmarshal(data, c)

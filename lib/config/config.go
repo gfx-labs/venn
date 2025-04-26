@@ -17,6 +17,14 @@ type NodeConfig struct {
 	Filters   []*Filter  `json:"filters,omitempty"`
 }
 
+type GatewayConfig struct {
+	HTTP
+	Logging Logging  `json:"logging,omitempty"`
+	Metrics *Metrics `json:"metrics,omitempty"`
+	Redis   *Redis   `json:"redis,omitempty"`
+}
+
+// possibly shared objects
 type Logging struct {
 	Format string     `json:"format,omitempty"`
 	Level  slog.Level `json:"log_level,omitempty"`
@@ -79,8 +87,6 @@ type Filter struct {
 }
 
 type Remote struct {
-	Chain *Chain `json:"-"`
-
 	Name     string            `json:"name"`
 	Url      SafeUrl           `json:"url"`
 	Desc     string            `help:"optional description" json:"desc,omitempty"`
