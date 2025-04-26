@@ -145,7 +145,6 @@ func (T *Stalker) tick(ctx context.Context, chain *config.Chain, remote jrpc.Han
 	nextTime := objTime.Add(blockTime)
 
 	prev, err := T.store.Put(ctx, chain, head.BlockNumber)
-	_ = prev
 	if err != nil {
 		// store error, so lets just wait the block time
 		return blockTime, err

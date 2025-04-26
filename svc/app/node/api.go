@@ -60,8 +60,8 @@ type Params struct {
 type Result struct {
 	fx.Out
 
-	Providers util.Multichain[jrpc.Handler]
-	Route     func(r chi.Router) `group:"route"`
+	Provider jrpc.Handler
+	Route    func(r chi.Router) `group:"route"`
 }
 
 func New(p Params) (r Result, err error) {
@@ -122,6 +122,8 @@ func New(p Params) (r Result, err error) {
 	}
 
 	handler = traceHandler(handler)
+
+	r.Provider = handler
 
 	// add the waiter hook to the shutdown handler.
 	p.Lc.Append(fx.Hook{

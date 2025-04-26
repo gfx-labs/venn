@@ -17,11 +17,8 @@ import (
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
 	"gfx.cafe/gfx/venn/lib/stores/blockstore"
 	"gfx.cafe/gfx/venn/lib/subctx"
-	"gfx.cafe/gfx/venn/lib/util"
 	"gfx.cafe/gfx/venn/svc/quarks/cluster"
 )
-
-type Chainblocks = util.Multichain[*Chainblock]
 
 type Chainblock struct {
 	log      *slog.Logger

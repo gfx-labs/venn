@@ -12,12 +12,7 @@ import (
 
 	"gfx.cafe/gfx/venn/svc/stores/vennstores/chainblock"
 	"gfx.cafe/gfx/venn/svc/stores/vennstores/rediblock"
-
-	"gfx.cafe/gfx/venn/lib/util"
 )
-
-type Blockstores = util.Multichain[blockstore.Store]
-type Headstores = util.Multichain[headstore.Store]
 
 type Params struct {
 	fx.In

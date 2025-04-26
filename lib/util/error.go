@@ -9,7 +9,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/contrib/extension/subscription"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 )
@@ -20,80 +19,12 @@ func NewErrChainNotFound(chain string) error {
 	return fmt.Errorf("%w: %s", ErrChainNotFound, chain)
 }
 
-type Multichain[T any] map[string]T
-
-func MakeMultichain[T, U any](
-	chains map[string]T,
-	constructor func(chain T) (U, error),
-) (Multichain[U], error) {
-	res := make(Multichain[U], len(chains))
-	for name, chain := range chains {
-		var err error
-		res[name], err = constructor(chain)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
 func GetChain[T any, U ~map[string]T](chain string, m U) (t T, err error) {
 	c, ok := m[chain]
 	if !ok {
 		return t, NewErrChainNotFound(chain)
 	}
 	return c, nil
-}
-
-func ChooseChain2[T0 interface {
-	comparable
-	jrpc.Handler
-}, T1 interface {
-	comparable
-	jrpc.Handler
-}, U0 ~map[string]T0, U1 ~map[string]T1](chain string, m0 U0, m1 U1) (t jrpc.Handler, err error) {
-	if c, ok := m0[chain]; ok && c != *new(T0) {
-		return c, nil
-	}
-	if c, ok := m1[chain]; ok && c != *new(T1) {
-		return c, nil
-	}
-	return t, NewErrChainNotFound(chain)
-}
-
-func ChooseChain3[T0 interface {
-	comparable
-	jrpc.Handler
-}, T1 interface {
-	comparable
-	jrpc.Handler
-}, T2 interface {
-	comparable
-	jrpc.Handler
-}, U0 ~map[string]T0, U1 ~map[string]T1, U2 ~map[string]T2](chain string, m0 U0, m1 U1, m2 U2) (t jrpc.Handler, err error) {
-	if c, ok := m0[chain]; ok && c != *new(T0) {
-		return c, nil
-	}
-	return ChooseChain2(chain, m1, m2)
-}
-
-func ChooseChain4[T0 interface {
-	comparable
-	jrpc.Handler
-}, T1 interface {
-	comparable
-	jrpc.Handler
-}, T2 interface {
-	comparable
-	jrpc.Handler
-}, T3 interface {
-	comparable
-	jrpc.Handler
-}, U0 ~map[string]T0, U1 ~map[string]T1, U2 ~map[string]T2, U3 ~map[string]T3](chain string, m0 U0, m1 U1, m2 U2, m3 U3) (t jrpc.Handler, err error) {
-	if c, ok := m0[chain]; ok && c != *new(T0) {
-		return c, nil
-	}
-	return ChooseChain3(chain, m1, m2, m3)
 }
 
 var UserError = errors.New("user error")

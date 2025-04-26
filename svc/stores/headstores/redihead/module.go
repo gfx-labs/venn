@@ -97,6 +97,11 @@ func (T *Redihead) Put(ctx context.Context, chain *config.Chain, head hexutil.Ui
 
 func (T *Redihead) setHead(chainName string, head uint64) {
 	T.headMu.Lock()
+	cur := T.head[chainName]
+	if head <= cur {
+		T.headMu.Unlock()
+		return
+	}
 	T.head[chainName] = head
 	T.headMu.Unlock()
 	func() {
