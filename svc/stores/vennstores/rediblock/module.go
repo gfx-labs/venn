@@ -15,11 +15,8 @@ import (
 
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/stores/blockstore"
-	"gfx.cafe/gfx/venn/lib/util"
 	"gfx.cafe/gfx/venn/svc/services/redi"
 )
-
-type Rediblocks = util.Multichain[*Rediblock]
 
 type Params struct {
 	fx.In
@@ -32,13 +29,12 @@ type Params struct {
 type Result struct {
 	fx.Out
 
-	Rediblock util.Multichain[*Rediblock] `optional:"true"`
+	Rediblock *Rediblock `optional:"true"`
 }
 
 type Rediblock struct {
-	chain *config.Chain
-	log   *slog.Logger
-	redi  *redi.Redis
+	log  *slog.Logger
+	redi *redi.Redis
 }
 
 func New(params Params) (r Result, err error) {
@@ -46,17 +42,11 @@ func New(params Params) (r Result, err error) {
 		params.Log.Info("rediblock disabled", "reason", "no redis")
 		return
 	}
-	r.Rediblock, err = util.MakeMultichain(
-		params.Chains,
-		func(chain *config.Chain) (*Rediblock, error) {
-			return &Rediblock{
-				chain: chain,
-				log:   params.Log,
-				redi:  params.Redi,
-			}, nil
-		},
-	)
-	return
+	r.Rediblock = &Rediblock{
+		log:  params.Log,
+		redi: params.Redi,
+	}
+	return r, nil
 }
 
 var checkReorgScript = redis.NewScript(`
@@ -124,20 +114,20 @@ var addEntriesScript = redis.NewScript(`
 	return head
 `)
 
-func (s *Rediblock) namespace() string {
-	return fmt.Sprintf("venn:{%s:%s}", s.redi.Namespace(), s.chain.Name)
+func (s *Rediblock) namespace(chain *config.Chain) string {
+	return "venn:{" + s.redi.Namespace() + ":" + chain.Name + "}"
 }
 
-func (s *Rediblock) Get(ctx context.Context, typ blockstore.EntryType, query blockstore.Query) ([]*blockstore.Entry, error) {
+func (s *Rediblock) Get(ctx context.Context, chain *config.Chain, typ blockstore.EntryType, query blockstore.Query) ([]*blockstore.Entry, error) {
 	switch q := query.(type) {
 	case blockstore.QueryHash:
 		pipeline := s.redi.C().Pipeline()
 
 		valueCmd := pipeline.Get(ctx,
-			fmt.Sprintf("%s:entries:by_hash:%d:%s:value", s.namespace(), typ, common.Hash(q).Hex()),
+			fmt.Sprintf("%s:entries:by_hash:%d:%s:value", s.namespace(chain), typ, common.Hash(q).Hex()),
 		)
 		numberCmd := pipeline.Get(ctx,
-			fmt.Sprintf("%s:entries:by_hash:%d:%s:number", s.namespace(), typ, common.Hash(q).Hex()),
+			fmt.Sprintf("%s:entries:by_hash:%d:%s:number", s.namespace(chain), typ, common.Hash(q).Hex()),
 		)
 
 		if _, err := pipeline.Exec(ctx); err != nil {
@@ -167,10 +157,10 @@ func (s *Rediblock) Get(ctx context.Context, typ blockstore.EntryType, query blo
 		for i := q.Start; i <= q.End; i++ {
 			commands = append(commands,
 				pipeline.Get(ctx,
-					fmt.Sprintf("%s:entries:by_number:%d:%d:value", s.namespace(), typ, uint64(i)),
+					fmt.Sprintf("%s:entries:by_number:%d:%d:value", s.namespace(chain), typ, uint64(i)),
 				),
 				pipeline.Get(ctx,
-					fmt.Sprintf("%s:entries:by_number:%d:%d:hash", s.namespace(), typ, uint64(i)),
+					fmt.Sprintf("%s:entries:by_number:%d:%d:hash", s.namespace(chain), typ, uint64(i)),
 				),
 			)
 		}
@@ -200,10 +190,10 @@ func (s *Rediblock) Get(ctx context.Context, typ blockstore.EntryType, query blo
 	}
 }
 
-func (s *Rediblock) reorg(ctx context.Context) error {
-	s.log.Info("reorg detected", "chain", s.chain.Name)
+func (s *Rediblock) reorg(ctx context.Context, chain *config.Chain) error {
+	s.log.Info("reorg detected", "chain", chain.Name)
 
-	keys, err := s.redi.C().Keys(ctx, fmt.Sprintf("%s:entries:by_number:*", s.namespace())).Result()
+	keys, err := s.redi.C().Keys(ctx, fmt.Sprintf("%s:entries:by_number:*", s.namespace(chain))).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			err = nil
@@ -214,16 +204,16 @@ func (s *Rediblock) reorg(ctx context.Context) error {
 	return s.redi.C().Del(ctx, keys...).Err()
 }
 
-func (s *Rediblock) Put(ctx context.Context, typ blockstore.EntryType, entries ...*blockstore.Entry) error {
+func (s *Rediblock) Put(ctx context.Context, chain *config.Chain, typ blockstore.EntryType, entries ...*blockstore.Entry) error {
 	keys := make([]string, 0, len(entries)*4+1)
 	values := make([]any, 0, len(entries)*3+1)
 
 	keys = append(keys,
-		fmt.Sprintf("%s:head", s.namespace()),
+		fmt.Sprintf("%s:head", s.namespace(chain)),
 	)
 
 	values = append(values,
-		int(math.Max(1, s.chain.BlockTimeSeconds)),
+		int(math.Max(1, chain.BlockTimeSeconds)),
 	)
 
 	var reorgKeys []string
@@ -237,7 +227,7 @@ func (s *Rediblock) Put(ctx context.Context, typ blockstore.EntryType, entries .
 			}
 
 			reorgKeys = append(reorgKeys,
-				fmt.Sprintf("%s:entries:by_number:%d:%d:hash", s.namespace(), typ, uint64(entry.BlockNumber-1)),
+				fmt.Sprintf("%s:entries:by_number:%d:%d:hash", s.namespace(chain), typ, uint64(entry.BlockNumber-1)),
 			)
 			reorgValues = append(reorgValues,
 				entry.ParentHash.Hex(),
@@ -245,10 +235,10 @@ func (s *Rediblock) Put(ctx context.Context, typ blockstore.EntryType, entries .
 		}
 
 		keys = append(keys,
-			fmt.Sprintf("%s:entries:by_hash:%d:%s:value", s.namespace(), typ, entry.BlockHash.Hex()),
-			fmt.Sprintf("%s:entries:by_hash:%d:%s:number", s.namespace(), typ, entry.BlockHash.Hex()),
-			fmt.Sprintf("%s:entries:by_number:%d:%d:value", s.namespace(), typ, uint64(entry.BlockNumber)),
-			fmt.Sprintf("%s:entries:by_number:%d:%d:hash", s.namespace(), typ, uint64(entry.BlockNumber)),
+			fmt.Sprintf("%s:entries:by_hash:%d:%s:value", s.namespace(chain), typ, entry.BlockHash.Hex()),
+			fmt.Sprintf("%s:entries:by_hash:%d:%s:number", s.namespace(chain), typ, entry.BlockHash.Hex()),
+			fmt.Sprintf("%s:entries:by_number:%d:%d:value", s.namespace(chain), typ, uint64(entry.BlockNumber)),
+			fmt.Sprintf("%s:entries:by_number:%d:%d:hash", s.namespace(chain), typ, uint64(entry.BlockNumber)),
 		)
 		values = append(values,
 			[]byte(entry.Value),
@@ -264,7 +254,7 @@ func (s *Rediblock) Put(ctx context.Context, typ blockstore.EntryType, entries .
 			return err
 		}
 		if reorg != "" {
-			if err = s.reorg(ctx); err != nil {
+			if err = s.reorg(ctx, chain); err != nil {
 				return err
 			}
 		}

@@ -2,6 +2,7 @@ package callcenter
 
 import (
 	"context"
+	"io"
 
 	"gfx.cafe/open/jrpc"
 	"github.com/jackc/puddle"
@@ -18,7 +19,11 @@ func NewPooler(new func(ctx context.Context) (Remote, error), maxSize int) *Pool
 			return new(ctx)
 		},
 		func(res interface{}) {
-			_ = res.(Remote).Close()
+			cast, ok := res.(io.Closer)
+			if !ok {
+				return
+			}
+			_ = cast.Close()
 		},
 		int32(maxSize),
 	)

@@ -3,32 +3,33 @@ package blockstore
 import (
 	"context"
 	"fmt"
+	"gfx.cafe/gfx/venn/lib/config"
 
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/singleflight"
 )
 
-type Deduper struct {
+type SingleFlight struct {
 	underlying Store
 	group      singleflight.Group
 }
 
-func NewDeduper(underlying Store) *Deduper {
-	return &Deduper{
+func NewSingleFlight(underlying Store) *SingleFlight {
+	return &SingleFlight{
 		underlying: underlying,
 	}
 }
 
-func (T *Deduper) Get(ctx context.Context, typ EntryType, query Query) ([]*Entry, error) {
+func (T *SingleFlight) Get(ctx context.Context, chain *config.Chain, typ EntryType, query Query) ([]*Entry, error) {
 	var groupQuery string
 	switch q := query.(type) {
 	case QueryRange:
-		groupQuery = fmt.Sprintf("%d.%v.%v", typ, q.Start, q.End)
+		groupQuery = fmt.Sprintf("%s.%d.%v.%v", chain.Name, typ, q.Start, q.End)
 	case QueryHash:
-		groupQuery = fmt.Sprintf("%d.%s", typ, common.Hash(q).Hex())
+		groupQuery = fmt.Sprintf("%s.%d.%s", chain.Name, typ, common.Hash(q).Hex())
 	}
 	result := T.group.DoChan(groupQuery, func() (interface{}, error) {
-		return T.underlying.Get(ctx, typ, query)
+		return T.underlying.Get(ctx, chain, typ, query)
 	})
 	select {
 	case res := <-result:
@@ -41,8 +42,8 @@ func (T *Deduper) Get(ctx context.Context, typ EntryType, query Query) ([]*Entry
 	}
 }
 
-func (T *Deduper) Put(ctx context.Context, typ EntryType, entries ...*Entry) error {
-	return T.underlying.Put(ctx, typ, entries...)
+func (T *SingleFlight) Put(ctx context.Context, chain *config.Chain, typ EntryType, entries ...*Entry) error {
+	return T.underlying.Put(ctx, chain, typ, entries...)
 }
 
-var _ Store = (*Deduper)(nil)
+var _ Store = (*SingleFlight)(nil)

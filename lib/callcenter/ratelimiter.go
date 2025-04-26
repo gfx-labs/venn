@@ -30,8 +30,4 @@ func (T *Ratelimiter) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 	T.remote.ServeRPC(w, r)
 }
 
-func (T *Ratelimiter) Close() error {
-	return T.remote.Close()
-}
-
 var _ Remote = (*Ratelimiter)(nil)

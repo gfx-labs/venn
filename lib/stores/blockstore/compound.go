@@ -3,6 +3,7 @@ package blockstore
 import (
 	"context"
 	"errors"
+	"gfx.cafe/gfx/venn/lib/config"
 	"log/slog"
 
 	"go.uber.org/multierr"
@@ -33,10 +34,10 @@ func (c *CompoundStore) AddStore(name string, store Store) {
 }
 
 // Put the block in every store. it's up to the store implementations to deal with deduplication, etc
-func (c *CompoundStore) Put(ctx context.Context, typ EntryType, entries ...*Entry) error {
+func (c *CompoundStore) Put(ctx context.Context, chain *config.Chain, typ EntryType, entries ...*Entry) error {
 	var merr error
 	for _, v := range c.stores {
-		err := v.store.Put(ctx, typ, entries...)
+		err := v.store.Put(ctx, chain, typ, entries...)
 		if err != nil {
 			merr = multierr.Append(merr, err)
 		}
@@ -47,7 +48,7 @@ func (c *CompoundStore) Put(ctx context.Context, typ EntryType, entries ...*Entr
 	return nil
 }
 
-func (c *CompoundStore) Get(ctx context.Context, typ EntryType, query Query) ([]*Entry, error) {
+func (c *CompoundStore) Get(ctx context.Context, chain *config.Chain, typ EntryType, query Query) ([]*Entry, error) {
 	if q, ok := query.(QueryRange); ok {
 		if q.End < q.Start {
 			return nil, nil
@@ -61,7 +62,7 @@ func (c *CompoundStore) Get(ctx context.Context, typ EntryType, query Query) ([]
 	var ok bool
 	for i, v = range c.stores {
 		var err error
-		entries, err = v.store.Get(ctx, typ, query)
+		entries, err = v.store.Get(ctx, chain, typ, query)
 		if err != nil {
 			merr = multierr.Append(merr, err)
 			continue
@@ -79,10 +80,10 @@ func (c *CompoundStore) Get(ctx context.Context, typ EntryType, query Query) ([]
 	merr = nil
 	for j := 0; j < i; j++ {
 		v := c.stores[j]
-		err := v.store.Put(ctx, typ, entries...)
+		err := v.store.Put(ctx, chain, typ, entries...)
 		if err != nil {
 			if !(errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
-				c.log.Warn("cache miss", "cachetype", v.name, "query", query, "err", err)
+				c.log.Warn("cache miss", "chain", chain.Name, "cache_type", v.name, "query", query, "err", err)
 			}
 			merr = multierr.Append(merr, err)
 			continue

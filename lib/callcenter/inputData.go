@@ -63,8 +63,4 @@ func (T *InputData) ServeRPC(w jrpc.ResponseWriter, r *jrpc.Request) {
 	}
 }
 
-func (T *InputData) Close() error {
-	return T.remote.Close()
-}
-
 var _ Remote = (*InputData)(nil)

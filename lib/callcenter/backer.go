@@ -127,8 +127,4 @@ func (T *Backer) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 	_ = w.Send(icept.Result, icept.Error)
 }
 
-func (T *Backer) Close() error {
-	return T.remote.Close()
-}
-
 var _ Remote = (*Backer)(nil)

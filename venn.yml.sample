@@ -8,21 +8,19 @@ chains:
   id: 1
   name: ethereum
   remotes:
-  - Chain: null
-    filters:
+  - filters:
     - geth
     - trace
-    name: brilliant
-    url: https://mainnet-rpc.apiary.software
+    name: drpc
+    url: https://ethereum.drpc.org
 - block_time_seconds: 2
   id: 137
   name: polygon
   remotes:
-  - Chain: null
-    filters:
+  - filters:
     - geth
-    name: ankr
-    url: https://rpc.ankr.com/polygon
+    name: drpc
+    url: https://polygon.drpc.org
 election: {}
 filters:
 - methods:

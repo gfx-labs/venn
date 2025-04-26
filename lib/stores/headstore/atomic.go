@@ -2,49 +2,56 @@ package headstore
 
 import (
 	"context"
+	"gfx.cafe/gfx/venn/lib/config"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 type Atomic struct {
-	head hexutil.Uint64
-	subs map[int]chan<- hexutil.Uint64
-	next int
-	mu   sync.RWMutex
+	heads map[string]hexutil.Uint64
+	subs  map[string]map[int]chan<- hexutil.Uint64
+	next  int
+	mu    sync.RWMutex
 }
 
 func NewAtomic() *Atomic {
 	return new(Atomic)
 }
 
-func (T *Atomic) Get(_ context.Context) (hexutil.Uint64, error) {
+func (T *Atomic) Get(_ context.Context, chain *config.Chain) (hexutil.Uint64, error) {
 	T.mu.RLock()
 	defer T.mu.RUnlock()
-
-	return T.head, nil
+	val, ok := T.heads[chain.Name]
+	if !ok {
+		return 0, nil
+	}
+	return val, nil
 }
 
-func (T *Atomic) Put(_ context.Context, head hexutil.Uint64) (prev hexutil.Uint64, err error) {
+func (T *Atomic) Put(_ context.Context, chain *config.Chain, head hexutil.Uint64) (prev hexutil.Uint64, err error) {
 	T.mu.Lock()
 	defer T.mu.Unlock()
 
-	if T.head >= head {
-		return T.head, nil
+	cur := T.heads[chain.Name]
+
+	if cur >= head {
+		return cur, nil
 	}
 
-	for _, sub := range T.subs {
-		select {
-		case sub <- head:
-		default:
+	if va, ok := T.subs[chain.Name]; ok {
+		for _, sub := range va {
+			select {
+			case sub <- head:
+			default:
+			}
 		}
 	}
-	old := T.head
-	T.head = head
-	return old, nil
+	T.heads[chain.Name] = head
+	return cur, nil
 }
 
-func (T *Atomic) On() (<-chan hexutil.Uint64, func()) {
+func (T *Atomic) On(chain *config.Chain) (<-chan hexutil.Uint64, func()) {
 	T.mu.Lock()
 	defer T.mu.Unlock()
 
@@ -52,17 +59,20 @@ func (T *Atomic) On() (<-chan hexutil.Uint64, func()) {
 	T.next++
 
 	if T.subs == nil {
-		T.subs = make(map[int]chan<- hexutil.Uint64)
+		T.subs = make(map[string]map[int]chan<- hexutil.Uint64)
+	}
+	if T.subs[chain.Name] == nil {
+		T.subs[chain.Name] = make(map[int]chan<- hexutil.Uint64)
 	}
 	ch := make(chan hexutil.Uint64, 1)
-	T.subs[id] = ch
+	T.subs[chain.Name][id] = ch
 
 	return ch, func() {
 		T.mu.Lock()
 		defer T.mu.Unlock()
 
-		if _, ok := T.subs[id]; ok {
-			delete(T.subs, id)
+		if _, ok := T.subs[chain.Name][id]; ok {
+			delete(T.subs[chain.Name], id)
 			close(ch)
 		}
 	}

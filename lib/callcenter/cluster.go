@@ -3,6 +3,7 @@ package callcenter
 import (
 	"cmp"
 	"errors"
+	"gfx.cafe/open/jrpc"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -16,14 +17,14 @@ import (
 // Cluster combines multiple remotes and attempts each by priority.
 type Cluster struct {
 	priorities     []*clustererPriority
-	remotes        []Remote
+	remotes        []jrpc.Handler
 	remotePriority []int
 	mu             sync.RWMutex
 }
 
 type clustererPriority struct {
 	priority int
-	remotes  []Remote
+	remotes  []jrpc.Handler
 	round    atomic.Int64
 }
 
@@ -31,7 +32,7 @@ func NewCluster() *Cluster {
 	return &Cluster{}
 }
 
-func (T *Cluster) Add(priority int, remote Remote) {
+func (T *Cluster) Add(priority int, remote jrpc.Handler) {
 	T.mu.Lock()
 	defer T.mu.Unlock()
 
@@ -60,13 +61,13 @@ func (T *Cluster) Add(priority int, remote Remote) {
 	copy(T.priorities[idx+1:], T.priorities[idx:])
 	T.priorities[idx] = &clustererPriority{
 		priority: priority,
-		remotes: []Remote{
+		remotes: []jrpc.Handler{
 			remote,
 		},
 	}
 }
 
-func (T *Cluster) Remotes() []Remote {
+func (T *Cluster) Remotes() []jrpc.Handler {
 	T.mu.RLock()
 	defer T.mu.RUnlock()
 
@@ -119,21 +120,3 @@ func (T *Cluster) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 		}
 	}
 }
-
-func (T *Cluster) Close() error {
-	T.mu.RLock()
-	defer T.mu.RUnlock()
-
-	var err error
-	for _, priority := range T.priorities {
-		for _, remote := range priority.remotes {
-			if nerr := remote.Close(); nerr != nil {
-				err = nerr
-			}
-		}
-	}
-
-	return err
-}
-
-var _ Remote = (*Cluster)(nil)

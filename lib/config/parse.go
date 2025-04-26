@@ -10,12 +10,11 @@ import (
 	"gfx.cafe/gfx/venn/lib/util"
 	"sigs.k8s.io/yaml"
 
-	"github.com/alecthomas/hcl/v2"
 	"github.com/lmittmann/tint"
 	"go.uber.org/fx"
 )
 
-type ConfigResult struct {
+type NodeConfigResult struct {
 	fx.Out
 
 	HTTP      *HTTP
@@ -30,17 +29,17 @@ type ConfigResult struct {
 	Log *slog.Logger
 }
 
-func FileParser(file string) func() (ConfigResult, error) {
-	return func() (ConfigResult, error) {
+func FileParser(file string) func() (NodeConfigResult, error) {
+	return func() (NodeConfigResult, error) {
 		bts, err := os.ReadFile(file)
 		if err != nil {
-			return ConfigResult{}, err
+			return NodeConfigResult{}, err
 		}
 
-		var cfg *Config
+		var cfg *NodeConfig
 		cfg, err = ParseConfig(file, bts)
 		if err != nil {
-			return ConfigResult{}, err
+			return NodeConfigResult{}, err
 		}
 
 		var remotes []*Remote
@@ -74,7 +73,7 @@ func FileParser(file string) func() (ConfigResult, error) {
 			}))
 		}
 		logger.Info("config loaded", "file", file)
-		res := ConfigResult{
+		res := NodeConfigResult{
 			HTTP:      &cfg.HTTP,
 			Redis:     cfg.Redis,
 			Ratelimit: cfg.Ratelimit,
@@ -87,34 +86,19 @@ func FileParser(file string) func() (ConfigResult, error) {
 		}
 		for _, v := range cfg.Chains {
 			if _, ok := res.Chains[v.Name]; ok {
-				return ConfigResult{}, fmt.Errorf("chain defined multiple times: %s", v.Name)
+				return NodeConfigResult{}, fmt.Errorf("chain defined multiple times: %s", v.Name)
 			}
 			res.Chains[v.Name] = v
 		}
 		return res, nil
 	}
 }
-func ParseConfigFile(file string) (*Config, error) {
-	bts, err := os.ReadFile(file)
+func ParseConfig(file string, data []byte) (*NodeConfig, error) {
+	c := &NodeConfig{}
+
+	err := yaml.Unmarshal(data, c)
 	if err != nil {
 		return nil, err
-	}
-	return ParseConfig(file, bts)
-}
-
-func ParseConfig(file string, data []byte) (*Config, error) {
-	c := &Config{}
-
-	if strings.HasSuffix(file, ".hcl") {
-		err := hcl.Unmarshal(data, c)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		err := yaml.Unmarshal(data, c)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	if c.Redis != nil {

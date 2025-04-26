@@ -4,6 +4,8 @@ import "gfx.cafe/open/jrpc"
 
 type Remote interface {
 	jrpc.Handler
+}
 
-	Close() error
+type Middleware interface {
+	Middleware(next jrpc.Handler) jrpc.Handler
 }

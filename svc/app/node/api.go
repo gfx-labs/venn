@@ -1,8 +1,9 @@
-package handler
+package node
 
 import (
 	"context"
 	"fmt"
+	"gfx.cafe/gfx/venn/svc/middlewares/forger"
 	"net/http"
 
 	"gfx.cafe/open/jrpc/contrib/jrpcutil"
@@ -24,7 +25,6 @@ import (
 	"gfx.cafe/gfx/venn/lib/subctx"
 	"gfx.cafe/gfx/venn/lib/util"
 	"gfx.cafe/gfx/venn/svc/atoms/cacher"
-	"gfx.cafe/gfx/venn/svc/atoms/forger"
 	"gfx.cafe/gfx/venn/svc/atoms/stalker"
 	"gfx.cafe/gfx/venn/svc/atoms/subcenter"
 	"gfx.cafe/gfx/venn/svc/quarks/cluster"
@@ -43,20 +43,17 @@ type Params struct {
 	// Blockland        *blockland.Blockland   `optional:"true"`
 	RequestCollector *promcollect.Collector `optional:"true"`
 
-	// forge methods that may not exist on all downstream chains
-	Forgers forger.Forgers
-
 	// head following for even faster access to the latest block.
-	Stalkers stalker.Stalkers
+	Stalker *stalker.Stalker
 
 	// result caching for certain methods
-	Cachers cacher.Cachers
+	Cacher *cacher.Cacher
 
 	// provides direct jsonrpc
-	Clusters cluster.Clusters
+	Clusters *cluster.Clusters
 
 	// provide subscriptions like eth_subscribe
-	Subcenters    subcenter.Subcenters
+	Subcenter     *subcenter.Subcenter
 	TraceProvider *gotel.TraceProvider `optional:"true"`
 }
 
@@ -68,61 +65,15 @@ type Result struct {
 }
 
 func New(p Params) (r Result, err error) {
-	r.Providers, err = util.MakeMultichain(
-		p.Chains,
-		func(chain *config.Chain) (jrpc.Handler, error) {
-			// dont be intimidated by ChooseChain4.
-			// all it does is extract the first match for the chain name from each of the maps.
-			// the reason is because a forger has a stalker, a stalker has a cacher, and a cacher has a cluster.
-			// a chain needs all the downstream dependencies in order to server the upstream dependencies.
-			// in a way, these are "more complicated" middleware.
+	handler := p.Clusters.Middleware(nil)
 
-			// TODO: we should migrate these to more proper middleware.
-			return util.ChooseChain4(
-				chain.Name,
-				p.Forgers,
-				p.Stalkers,
-				p.Cachers,
-				p.Clusters,
-			)
-		},
-	)
-	if err != nil {
-		return
-	}
+	handler = p.Cacher.Middleware(handler)
 
-	// note that the order of middleware being added is opposite to the order in which they are invoked.
-	// also, all middleware, if the chain matters, must extract the chain from the request context. including the base level middleware handler, as you see here.
-	var handler jrpc.Handler = jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
-		// extract the chain injected into the request context
-		chain, err := subctx.GetChain(req.Context())
-		if err != nil {
-			_ = w.Send(nil, err)
-			return
-		}
-		// from here, we grab the correct chain from the providers (this is a simple map lookup)
-		provider, err := util.GetChain(chain, r.Providers)
-		if err != nil {
-			_ = w.Send(nil, err)
-			return
-		}
+	handler = p.Stalker.Middleware(handler)
 
-		// now grab the subcenter for the chain
-		subcenter, err := util.GetChain(chain, p.Subcenters)
-		// ignore the error, because its if the subcenter doesn't exist, and we just dont mount in that case.
-		if err == nil {
-			provider = subcenter.Middleware(provider)
-		}
+	handler = (&forger.Forger{}).Middleware(handler)
 
-		// and then we process the actual request using the chains handler
-		// in this way, each chain is isolated from the others, but of course are all in the same app
-		provider.ServeRPC(w, req)
-	})
-
-	// blockland should be mounted last
-	/* if p.Blockland != nil {
-		handler = p.Blockland.Middleware(handler)
-	} */
+	handler = p.Subcenter.Middleware(handler)
 
 	if p.RequestCollector != nil {
 		handler = p.RequestCollector.Middleware(handler)
@@ -151,7 +102,7 @@ func New(p Params) (r Result, err error) {
 				trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(
 					attribute.String("method", req.Method),
 					attribute.String("params", string(req.Params)),
-					attribute.String("chain", chain)))
+					attribute.String("chain", chain.Name)))
 			defer span.End()
 
 			ew := &jrpcutil.ErrorRecorder{
@@ -194,10 +145,15 @@ func New(p Params) (r Result, err error) {
 		// the primary mount point, where we grab the chain and inject it into the request context
 		r.Mount("/{chain}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			chainString := chi.URLParam(r, "chain")
-			r = r.WithContext(subctx.WithChain(r.Context(), chainString))
+			val, ok := p.Chains[chainString]
+			if !ok {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			// extract the chain injected into the request context
+			r = r.WithContext(subctx.WithChain(r.Context(), val))
 			serverHandler.ServeHTTP(w, r)
 		}))
-
 		// health check
 		r.Mount("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("OK"))

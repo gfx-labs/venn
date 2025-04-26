@@ -2,8 +2,9 @@ package subcenter
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
+	"gfx.cafe/gfx/venn/lib/stores/headstore"
+	"gfx.cafe/gfx/venn/lib/subctx"
 	"log/slog"
 
 	"gfx.cafe/open/jrpc"
@@ -15,12 +16,7 @@ import (
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/ethtypes"
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
-	"gfx.cafe/gfx/venn/lib/stores/headstore"
-	"gfx.cafe/gfx/venn/lib/util"
-	"gfx.cafe/gfx/venn/svc/atoms/vennstore"
 )
-
-type Subcenters = util.Multichain[*Subcenter]
 
 type Subcenter struct {
 	store headstore.Store
@@ -31,49 +27,25 @@ type Params struct {
 	fx.In
 
 	Log    *slog.Logger
-	Heads  vennstore.Headstores
+	Heads  headstore.Store
 	Chains map[string]*config.Chain
 }
 
 type Result struct {
 	fx.Out
 
-	Result Subcenters `optional:"true"`
+	Result *Subcenter `optional:"true"`
 }
 
 func New(p Params) (r Result, err error) {
-	r.Result, err = util.MakeMultichain(
-		p.Chains,
-		func(chain *config.Chain) (*Subcenter, error) {
-			head, err := util.GetChain(chain.Name, p.Heads)
-			if err != nil {
-				return nil, err
-			}
-
-			return &Subcenter{
-				store: head,
-				log:   p.Log.With("chain", chain.Name),
-			}, nil
-		},
-	)
-	return
-}
-
-func (T *Subcenter) Track(ctx context.Context) {
-	ch, done := T.store.On()
-	defer done()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case head := <-ch:
-			T.log.Info("HEAD", "number", head)
-		}
+	r.Result = &Subcenter{
+		store: p.Heads,
+		log:   p.Log,
 	}
+	return r, nil
 }
 
-func (T *Subcenter) removeTransactions(block json.RawMessage) (json.RawMessage, error) {
+func removeTransactions(block json.RawMessage) (json.RawMessage, error) {
 	d := jx.DecodeBytes(block)
 	var w jx.Writer
 
@@ -112,8 +84,18 @@ func (T *Subcenter) removeTransactions(block json.RawMessage) (json.RawMessage, 
 
 func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 	return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
+
 		switch r.Method {
 		case "eth_subscribe":
+			chain, err := subctx.GetChain(r.Context())
+			if err != nil {
+				_ = w.Send(nil, err)
+				return
+			}
+			if chain.ParsedStalk {
+				_ = w.Send(nil, jsonrpc.NewInvalidRequestError("chain does not support subscriptions"))
+				return
+			}
 			notifier, ok := subscription.NotifierFromContext(r.Context())
 			if !ok {
 				_ = w.Send(nil, subscription.ErrNotificationsUnsupported)
@@ -139,7 +121,7 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 
 			params = params[1:]
 
-			current, err := T.store.Get(r.Context())
+			current, err := T.store.Get(r.Context(), chain)
 			if err != nil {
 				_ = w.Send(nil, err)
 				return
@@ -150,7 +132,7 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 			switch method {
 			case "newHeads":
 				{
-					sub, done := T.store.On()
+					sub, done := T.store.On(chain)
 					defer done()
 
 					w.Send(notifier.ID(), nil)
@@ -171,7 +153,7 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 									T.log.Error("failed to get block", "error", err)
 									continue
 								}
-								withoutTxns, err := T.removeTransactions(block)
+								withoutTxns, err := removeTransactions(block)
 								if err != nil {
 									T.log.Error("failed to remove txns from block. was the block invalid?", "error", err)
 									continue
@@ -200,7 +182,7 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 					}
 
 					w.Send(notifier.ID(), nil)
-					sub, done := T.store.On()
+					sub, done := T.store.On(chain)
 					defer done()
 					for {
 						select {

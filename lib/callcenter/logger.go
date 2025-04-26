@@ -25,8 +25,4 @@ func (T *Logger) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 	T.logger.Debug("handled request", "method", r.Method)
 }
 
-func (T *Logger) Close() error {
-	return T.remote.Close()
-}
-
 var _ Remote = (*Logger)(nil)

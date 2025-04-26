@@ -48,8 +48,4 @@ func (T *Collector) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 	_ = w.Send(icept.Result, icept.Error)
 }
 
-func (T *Collector) Close() error {
-	return T.remote.Close()
-}
-
 var _ Remote = (*Collector)(nil)

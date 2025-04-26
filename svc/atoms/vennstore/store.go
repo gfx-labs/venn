@@ -27,62 +27,41 @@ type Params struct {
 	Log    *slog.Logger
 	Chains map[string]*config.Chain
 
-	// Cassblock   *cassblock.Cassblock `optional:"true"`
-	Rediblock  rediblock.Rediblocks `optional:"true"`
-	Chainblock chainblock.Chainblocks
+	Rediblock  *rediblock.Rediblock `optional:"true"`
+	Chainblock *chainblock.Chainblock
 
-	Redihead redihead.Rediheads
+	Redihead *redihead.Redihead
 }
 
 type Result struct {
 	fx.Out
 
-	Blockstores Blockstores
-	Headstores  Headstores
+	Blockstore blockstore.Store
+	Headstore  headstore.Store
 }
 
 func New(p Params) (r Result, err error) {
-	r.Blockstores, err = util.MakeMultichain(
-		p.Chains,
-		func(chain *config.Chain) (blockstore.Store, error) {
-			compoundStore := blockstore.NewCompoundStore(p.Log)
-			compoundStore.AddStore(
-				"lru",
-				blockstore.NewLruStore(16),
-			)
-			if p.Rediblock != nil {
-				rb, err := util.GetChain(chain.Name, p.Rediblock)
-				if err != nil {
-					return nil, err
-				}
-				compoundStore.AddStore("rediblock", rb)
-			}
-			/*
-				if p.Cassblock != nil {
-					compoundStore.AddStore("cassblock", p.Cassblock)
-				}
-			*/
-			cb, err := util.GetChain(chain.Name, p.Chainblock)
-			if err != nil {
-				return nil, err
-			}
-			compoundStore.AddStore("blockgetter", cb)
-
-			return blockstore.NewDeduper(compoundStore), nil
-		},
+	compoundStore := blockstore.NewCompoundStore(p.Log)
+	compoundStore.AddStore(
+		"lru",
+		blockstore.NewLruStore(128),
 	)
-	if err != nil {
-		return
+	if p.Rediblock != nil {
+		compoundStore.AddStore("rediblock", p.Rediblock)
 	}
-	r.Headstores, err = util.MakeMultichain(
-		p.Chains,
-		func(chain *config.Chain) (headstore.Store, error) {
-			if p.Redihead != nil {
-				return util.GetChain(chain.Name, p.Redihead)
-			}
+	/*
+		if p.Cassblock != nil {
+			compoundStore.AddStore("cassblock", p.Cassblock)
+		}
+	*/
+	compoundStore.AddStore("blockgetter", p.Chainblock)
+	r.Blockstore = blockstore.NewSingleFlight(compoundStore)
 
-			return headstore.NewAtomic(), nil
-		},
-	)
+	// set headstore
+	if p.Redihead != nil {
+		r.Headstore = p.Redihead
+	} else {
+		r.Headstore = headstore.NewAtomic()
+	}
 	return
 }

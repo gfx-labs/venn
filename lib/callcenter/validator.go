@@ -226,8 +226,4 @@ func (T *Validator) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 	}
 }
 
-func (T *Validator) Close() error {
-	return T.remote.Close()
-}
-
 var _ Remote = (*Validator)(nil)
