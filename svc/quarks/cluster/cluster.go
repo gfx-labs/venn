@@ -2,12 +2,13 @@ package cluster
 
 import (
 	"context"
-	"gfx.cafe/gfx/venn/lib/subctx"
-	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"io"
 	"log/slog"
 	"time"
+
+	"gfx.cafe/gfx/venn/lib/subctx"
+	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
+	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 
 	"gfx.cafe/gfx/venn/svc/middlewares/blockLookBack"
 	"gfx.cafe/gfx/venn/svc/stores/headstores/redihead"
@@ -95,24 +96,24 @@ func New(params Params) (r Result, err error) {
 					).Middleware(remote)
 
 					remote = callcenter.NewLogger(
-						params.Log.With("remote", cfg.Name, "chain", cfg.Chain.Name),
+						params.Log.With("remote", cfg.Name, "chain", chain.Name),
 					).Middleware(remote)
 
 					remote = callcenter.NewBacker(
-						params.Log.With("remote", cfg.Name, "chain", cfg.Chain.Name),
+						params.Log.With("remote", cfg.Name, "chain", chain.Name),
 						cfg.ParsedRateLimitBackoff,
 						cfg.ParsedErrorBackoffMin,
 						cfg.ParsedErrorBackoffMax,
 					).Middleware(remote)
 
 					remote = callcenter.NewValidator(
-						max(time.Minute, time.Duration(float64(time.Second)*2*cfg.Chain.BlockTimeSeconds)),
+						max(time.Minute, time.Duration(float64(time.Second)*2*chain.BlockTimeSeconds)),
 					).Middleware(remote)
 
 					remote = callcenter.NewDoctor(
 						remote,
-						params.Log.With("remote", cfg.Name, "chain", cfg.Chain.Name),
-						cfg.Chain.Id,
+						params.Log.With("remote", cfg.Name, "chain", chain.Name),
+						chain.Id,
 						cfg.ParsedHealthCheckIntervalMin,
 						cfg.ParsedHealthCheckIntervalMax,
 					)

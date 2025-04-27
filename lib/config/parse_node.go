@@ -122,8 +122,6 @@ func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 		}
 
 		for _, vv := range v.Remotes {
-			vv.Chain = v
-
 			if v.Name == "health" {
 				return nil, fmt.Errorf(`chain name cannot be "%s"`, v.Name)
 			}
