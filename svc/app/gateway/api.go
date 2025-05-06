@@ -20,7 +20,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/fx"
 
-	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/subctx"
 	"gfx.cafe/gfx/venn/lib/util"
 
@@ -31,7 +30,6 @@ type Params struct {
 	fx.In
 
 	Lc               fx.Lifecycle
-	Chains           map[string]*config.Chain
 	Subscription     *subscription.Engine   `optional:"true"`
 	RequestCollector *promcollect.Collector `optional:"true"`
 

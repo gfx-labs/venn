@@ -114,9 +114,8 @@ func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 	}
 
 	if c.Ratelimit != nil {
-		c.Ratelimit.BucketSize = util.Coa(c.Ratelimit.BucketSize, 200)
-		c.Ratelimit.BucketDrip = util.Coa(c.Ratelimit.BucketDrip, 100)
-		c.Ratelimit.BucketCycleSeconds = util.Coa(c.Ratelimit.BucketCycleSeconds, 10)
+		c.Ratelimit.Limit = util.Coa(c.Ratelimit.Limit, 200)
+		c.Ratelimit.Window = util.Coa(c.Ratelimit.Window, Duration{time.Second * 10})
 	}
 
 	// add all the filters from the presets block to the remotes

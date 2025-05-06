@@ -8,7 +8,6 @@ require (
 	gfx.cafe/open/gotoprom v0.0.2
 	gfx.cafe/open/jrpc v0.6.1
 	gfx.cafe/util/go v1.12.1-0.20240717000937-c42e930797c2
-	github.com/alecthomas/hcl/v2 v2.0.0
 	github.com/alecthomas/kong v1.8.1
 	github.com/alicebob/miniredis/v2 v2.32.1
 	github.com/dranikpg/gtrs v0.6.0
@@ -27,6 +26,8 @@ require (
 	github.com/lmittmann/tint v1.0.4
 	github.com/prometheus/client_golang v1.19.1
 	github.com/redis/go-redis/v9 v9.5.1
+	github.com/redis/rueidis v1.0.59
+	github.com/redis/rueidis/rueidislimiter v1.0.59
 	github.com/riandyrn/otelchi v0.9.0
 	github.com/scylladb/gocqlx/v2 v2.8.0
 	github.com/stretchr/testify v1.10.0
@@ -35,16 +36,14 @@ require (
 	go.opentelemetry.io/otel/trace v1.33.0
 	go.uber.org/fx v1.22.1
 	go.uber.org/multierr v1.11.0
-	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
-	golang.org/x/sync v0.10.0
-	golang.org/x/sys v0.29.1-0.20250107080300-1c14dcadc3ab
+	golang.org/x/sync v0.12.0
+	golang.org/x/sys v0.31.0
 	golang.org/x/time v0.9.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
 	gfx.cafe/open/websocket v1.10.0 // indirect
-	github.com/alecthomas/participle/v2 v2.1.1 // indirect
 	github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -72,6 +71,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/redis/rueidis/rueidiscompat v1.0.59 // indirect
 	github.com/scylladb/go-reflectx v1.0.1 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
@@ -87,9 +87,10 @@ require (
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.uber.org/dig v1.17.1 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.32.0 // indirect
-	golang.org/x/net v0.34.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8 // indirect
+	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240701130421-f6361c86f094 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect
 	google.golang.org/grpc v1.64.0 // indirect

@@ -7,14 +7,16 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
+	"github.com/redis/rueidis"
 	"go.uber.org/fx"
 
 	"gfx.cafe/gfx/venn/lib/config"
 )
 
 type Redis struct {
-	c   *redis.Client
-	cfg *config.Redis
+	c       *redis.Client
+	cfg     *config.Redis
+	rueidis rueidis.Client
 }
 
 type RedisParams struct {
@@ -48,6 +50,10 @@ func New(params RedisParams) (res RedisResult, err error) {
 		r.c = redis.NewClient(&redis.Options{
 			Addr: mr.Addr(),
 		})
+		r.rueidis, err = rueidis.NewClient(rueidis.ClientOption{
+			InitAddress:  []string{mr.Addr()},
+			DisableCache: true,
+		})
 
 		params.Lc.Append(fx.Hook{
 			OnStart: func(ctx context.Context) error {
@@ -80,10 +86,19 @@ func New(params RedisParams) (res RedisResult, err error) {
 		if err != nil {
 			return res, err
 		}
+		rudidisOpts, err := rueidis.ParseURL(string(params.Config.URI))
+		if err != nil {
+			return res, err
+		}
 		params.Log.Info("connecting to redis", "addr", opts.Addr, "user", opts.Username)
+		r.rueidis, err = rueidis.NewClient(rudidisOpts)
+		if err != nil {
+			return res, err
+		}
 		r.c = redis.NewClient(opts)
 		params.Lc.Append(fx.Hook{
 			OnStop: func(_ context.Context) error {
+				r.rueidis.Close()
 				return r.c.Close()
 			},
 		})
@@ -93,6 +108,9 @@ func New(params RedisParams) (res RedisResult, err error) {
 	}, nil
 }
 
+func (r *Redis) R() rueidis.Client {
+	return r.rueidis
+}
 func (r *Redis) C() *redis.Client {
 	return r.c
 }

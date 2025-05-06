@@ -2,6 +2,7 @@ package config
 
 import (
 	"log/slog"
+	"time"
 )
 
 type NodeConfig struct {
@@ -37,6 +38,8 @@ type EndpointSpec struct {
 	Paths map[string]string `json:"paths"`
 	// url to the venn to proxy to
 	VennUrl SafeUrl `json:"venn_url"`
+
+	Limits EndpointLimits `json:"limits,omitempty"`
 }
 
 type EndpointLimits struct {
@@ -46,8 +49,9 @@ type EndpointLimits struct {
 }
 
 type AbuseLimit struct {
-	Id    string `json:"id"`
-	Total int    `json:"total"`
+	Id     string        `json:"id"`
+	Total  int           `json:"total"`
+	Window time.Duration `json:"window"`
 }
 
 type UsageLimit struct {
@@ -88,9 +92,8 @@ type Scylla struct {
 }
 
 type RateLimit struct {
-	BucketSize         int `json:"bucket_size,omitempty"`
-	BucketDrip         int `json:"bucket_drip,omitempty"`
-	BucketCycleSeconds int `json:"bucket_cycle_seconds,omitempty"`
+	Window Duration `json:"window,omitempty"`
+	Limit  int      `json:"limit,omitempty"`
 }
 
 type Chain struct {

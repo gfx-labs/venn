@@ -1,15 +1,15 @@
 package ratelimit
 
 import (
-	"context"
-	"fmt"
 	"log/slog"
+	"net"
 	"strings"
 	"time"
 
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
-	"github.com/dranikpg/gtrs"
+	"github.com/redis/rueidis"
+	"github.com/redis/rueidis/rueidislimiter"
 	"go.uber.org/fx"
 
 	"gfx.cafe/gfx/venn/svc/services/redi"
@@ -18,13 +18,11 @@ import (
 )
 
 type Limiter struct {
-	config  *config.RateLimit
-	redis   *redi.Redis
-	dir     *Directory
-	log     *slog.Logger
-	entries gtrs.Stream[Entry]
+	config *config.RateLimit
+	redis  *redi.Redis
+	log    *slog.Logger
 
-	streamKey string
+	rl rueidislimiter.RateLimiterClient
 }
 
 type LimiterParams struct {
@@ -43,149 +41,88 @@ type LimiterResult struct {
 	Limiter *Limiter
 }
 
-func New(params LimiterParams) LimiterResult {
+func New(params LimiterParams) (LimiterResult, error) {
 	if params.Config == nil {
-		return LimiterResult{}
+		return LimiterResult{}, nil
 	}
 	if params.Redis == nil {
 		params.Log.Info("no redis configured, rate limiter disabled")
-		return LimiterResult{}
+		return LimiterResult{}, nil
+	}
+	rLimiter, err := rueidislimiter.NewRateLimiter(rueidislimiter.RateLimiterOption{
+		ClientBuilder: func(option rueidis.ClientOption) (rueidis.Client, error) {
+			return params.Redis.R(), nil
+		},
+		// TODO: make this configurable
+		KeyPrefix: params.Redis.Namespace() + "ratelimit:actions:",
+		Limit:     params.Config.Limit,
+		Window:    params.Config.Window.Duration,
+	})
+	if err != nil {
+		return LimiterResult{}, err
 	}
 
 	limiter := &Limiter{
-		config: params.Config,
-		dir:    NewDirectory(),
-		log:    params.Log,
-		// TODO: make this configurable
-		streamKey: params.Redis.Namespace() + "ratelimit:actions",
-		redis:     params.Redis,
+		rl: rLimiter,
 	}
-
-	ctx, cn := context.WithCancel(context.Background())
-	params.Lc.Append(fx.Hook{
-		OnStart: func(_ context.Context) error {
-			limiter.entries = gtrs.NewStream[Entry](params.Redis.C(), limiter.streamKey, &gtrs.Options{
-				MaxLen: 1280,
-			})
-
-			cs := gtrs.NewConsumer[Entry](ctx, params.Redis.C(), map[string]string{
-				limiter.streamKey: "$",
-			})
-
-			// first catch up
-			params.Log.Info("catching up with ratelimit log")
-			err := limiter.reconcileBans(ctx)
-			if err != nil {
-				return err
-			}
-			params.Log.Info("starting ratelimit listener")
-			go func() {
-				for msg := range cs.Chan() {
-					limiter.processAction(msg.ID, &msg.Data)
-				}
-			}()
-			// then start
-			return nil
-		},
-		OnStop: func(_ context.Context) error {
-			cn()
-			return nil
-		},
-	})
-
 	return LimiterResult{
 		Limiter: limiter,
-	}
+	}, nil
 }
 
-func (rl *Limiter) reconcileBans(ctx context.Context) error {
-	// read the bans in the past hour. should be basically instant.
-	now := time.Now()
-	res, err := rl.entries.Range(ctx,
-		fmt.Sprintf("%d-0", now.Add(-1*time.Hour).UnixMilli()),
-		fmt.Sprintf("%d-0", now.UnixMilli()),
-	)
-	if err != nil {
-		return err
+func formRateLimitKeyFromIp(r *jsonrpc.Request) (string, error) {
+	var rateLimitKey string
+	if r.Peer.HTTP == nil {
+		return "anonymous", nil
 	}
-	for _, msg := range res {
-		dat := msg.Data
-		rl.processAction(msg.ID, &dat)
+	remoteAddr := r.Peer.HTTP.RemoteAddr
+	if strings.Contains(remoteAddr, ":") {
+		rateLimitKey, _, err := net.SplitHostPort(remoteAddr)
+		if err != nil {
+			return "", err
+		}
+		return "ip:" + rateLimitKey, nil
 	}
-	return nil
-}
 
-func (rl *Limiter) processAction(id string, e *Entry) {
-	rl.log.Warn(
-		"ratelimit action enforced",
-		"id", id,
-		"action", e.Action,
-		"user", e.User,
-		"until", e.Until)
-	switch e.Action {
-	case "ban":
-		rl.dir.Ban(e)
-	default:
-		rl.log.Error(
-			"unrecognized redis action",
-			"id", id,
-			"action", e.Action,
-			"user", e.User,
-			"until", e.Until)
-	}
+	return rateLimitKey, nil
 }
 
 func (rl *Limiter) Middleware(h jrpc.Handler) jrpc.Handler {
 	return jsonrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
-		ipAddress := r.Peer.HTTP.RemoteAddr
-		if wait := rl.CheckLimit(ipAddress); wait > 0 {
+		rateLimitKey, err := formRateLimitKeyFromIp(r)
+		if err != nil {
 			w.Send(nil, &jsonrpc.JsonError{
-				Code:    429,
-				Message: "Rate Limit Hit",
+				Code:    500,
+				Message: "Internal Server Error",
 				Data: map[string]any{
-					"Wait": wait,
+					"Error": err.Error(),
 				},
 			})
 			return
 		}
-		go func() {
-			err := rl.ApplyUsage(r.Context(), 1, ipAddress)
-			if err != nil {
-				rl.log.Error("Failed to apply ratelimit", "addr", ipAddress, "err", err)
-				return
-			}
-		}()
+		wait, err := rl.rl.Allow(r.Context(), rateLimitKey)
+		if err != nil {
+			w.Send(nil, &jsonrpc.JsonError{
+				Code:    500,
+				Message: "Internal Server Error",
+				Data: map[string]any{
+					"Error": err.Error(),
+				},
+			})
+			return
+		}
+		if !wait.Allowed {
+			waitTime := time.UnixMilli(wait.ResetAtMs).Sub(time.Now())
+			w.Send(nil, &jsonrpc.JsonError{
+				Code:    429,
+				Message: "Rate Limit Hit",
+				Data: map[string]any{
+					"Wait": waitTime / time.Millisecond,
+					"Key":  rateLimitKey,
+				},
+			})
+			return
+		}
 		h.ServeRPC(w, r)
 	})
-}
-
-func (rl *Limiter) ApplyUsage(ctx context.Context, amount int, tags ...string) error {
-	// example.
-	// bucketSize=200
-	// bucketDrip=100
-	// bucketCycleTimeSeconds=10
-	// the bucket starts with 200 tokens
-	// every 10 seconds, 100 tokens will be added to the bucket
-	// this means a sustained rps of 10/s over 10 seconds, with burst of 20/s available.
-
-	key := strings.Join(tags, ":")
-	// TODO: allow this to be configured
-	_, err := LuaAllowN.Run(ctx, rl.redis.C(), []string{
-		key,
-		"banned:" + key,
-		rl.streamKey,
-	},
-		rl.config.BucketSize,
-		rl.config.BucketDrip,
-		rl.config.BucketCycleSeconds,
-		amount,
-	).Result()
-	return err
-}
-
-func (rl *Limiter) CheckLimit(tags ...string) (remaining time.Duration) {
-	key := strings.Join(tags, ":")
-	until := rl.dir.Check(key)
-	remaining = time.Until(until)
-	return remaining
 }
