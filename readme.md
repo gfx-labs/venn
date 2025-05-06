@@ -69,19 +69,6 @@ an eth_getLogs request for historical information will go to the caches, then th
 as previously mentioned, we converted from not-fx to fx, so there are some rough edges around the structure. this is a very old project within gfx.
 
 
-#### hcl
-
-i picked HCL for a few reasons.
-
-1. i was doing a lot of devops work at this time, since the company was new, and I am the de-facto cloud engineer.
-2. i wanted to be able to easily refer to other parts of a config (see the filters sections), since there are many classes of nodes.
-3. yaml anchors are sort of demented, and jsonpointers felt somewhat clunky/unsafe.
-4. i didn't want to go through the pain of writing an entire configuration api.
-
-hcl gave me this weird middle ground between json/yaml, and a scripting language like starlark, javascript, or lua.
-
-although, in hindsight, it would have perhaps been better to lean towards one side.
-
 #### the app is multi-chain, instead of one chain per.
 
 the oku backend is single-chain-tenanted, and it does make a lot of sense, from a devex point of view, to only ever be running a single chain at a time.
