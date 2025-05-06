@@ -3,8 +3,9 @@ package node
 import (
 	"context"
 	"fmt"
-	"gfx.cafe/gfx/venn/svc/middlewares/forger"
 	"net/http"
+
+	"gfx.cafe/gfx/venn/svc/middlewares/forger"
 
 	"gfx.cafe/open/jrpc/contrib/jrpcutil"
 	"gfx.cafe/util/go/gotel"
@@ -144,18 +145,16 @@ func New(p Params) (r Result, err error) {
 				return r.Header.Get("upgrade") == ""
 			})))
 
-		// the primary mount point, where we grab the chain and inject it into the request context
-		r.Mount("/{chain}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			chainString := chi.URLParam(r, "chain")
-			val, ok := p.Chains[chainString]
-			if !ok {
-				w.WriteHeader(http.StatusNotFound)
-				return
+		for _, chain := range p.Chains {
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r = r.WithContext(subctx.WithChain(r.Context(), chain))
+				serverHandler.ServeHTTP(w, r)
+			})
+			r.Mount("/"+chain.Name, handler)
+			for _, alias := range chain.Aliases {
+				r.Mount("/"+alias, handler)
 			}
-			// extract the chain injected into the request context
-			r = r.WithContext(subctx.WithChain(r.Context(), val))
-			serverHandler.ServeHTTP(w, r)
-		}))
+		}
 		// health check
 		r.Mount("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("OK"))

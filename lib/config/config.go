@@ -64,8 +64,9 @@ type RateLimit struct {
 }
 
 type Chain struct {
-	Name string `json:"name"`
-	Id   int    `json:"id"`
+	Name    string   `json:"name"`
+	Id      int      `json:"id"`
+	Aliases []string `json:"aliases,omitempty"`
 
 	BlockTimeSeconds float64 `json:"block_time_seconds"`
 

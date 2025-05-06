@@ -84,9 +84,17 @@ func NodeFileParser(file string) func() (NodeConfigResult, error) {
 			Metrics:   cfg.Metrics,
 			Election:  &cfg.Election,
 		}
+		endpoints := make(map[string]struct{})
 		for _, v := range cfg.Chains {
 			if _, ok := res.Chains[v.Name]; ok {
-				return NodeConfigResult{}, fmt.Errorf("chain defined multiple times: %s", v.Name)
+				return NodeConfigResult{}, fmt.Errorf("chain name conflict: %s", v.Name)
+			}
+			endpoints[v.Name] = struct{}{}
+			for _, vv := range v.Aliases {
+				if _, ok := endpoints[vv]; ok {
+					return NodeConfigResult{}, fmt.Errorf("chain alias conflict: %s", vv)
+				}
+				endpoints[vv] = struct{}{}
 			}
 			res.Chains[v.Name] = v
 		}
