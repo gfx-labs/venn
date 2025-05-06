@@ -138,29 +138,20 @@ func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 				vv.Headers[key] = os.ExpandEnv(value)
 			}
 
-			vv.ParsedHealthCheckIntervalMin, err = util.CoaFunc(time.ParseDuration, vv.HealthCheckIntervalMin, time.Minute)
-			if err != nil {
-				return nil, err
+			if vv.HealthCheckIntervalMin.Duration == 0 {
+				vv.HealthCheckIntervalMin = Duration{time.Minute}
 			}
-
-			vv.ParsedHealthCheckIntervalMax, err = util.CoaFunc(time.ParseDuration, vv.HealthCheckIntervalMax, time.Hour)
-			if err != nil {
-				return nil, err
+			if vv.HealthCheckIntervalMax.Duration == 0 {
+				vv.HealthCheckIntervalMax = Duration{time.Hour}
 			}
-
-			vv.ParsedRateLimitBackoff, err = util.CoaFunc(time.ParseDuration, vv.RateLimitBackoff, 5*time.Second)
-			if err != nil {
-				return nil, err
+			if vv.RateLimitBackoff.Duration == 0 {
+				vv.RateLimitBackoff = Duration{5 * time.Second}
 			}
-
-			vv.ParsedErrorBackoffMin, err = util.CoaFunc(time.ParseDuration, vv.ErrorBackoffMin, 5*time.Second)
-			if err != nil {
-				return nil, err
+			if vv.ErrorBackoffMin.Duration == 0 {
+				vv.ErrorBackoffMin = Duration{5 * time.Second}
 			}
-
-			vv.ParsedErrorBackoffMax, err = util.CoaFunc(time.ParseDuration, vv.ErrorBackoffMax, 5*time.Second)
-			if err != nil {
-				return nil, err
+			if vv.ErrorBackoffMax.Duration == 0 {
+				vv.ErrorBackoffMax = Duration{5 * time.Second}
 			}
 
 			vv.ParsedFilters = make([]*Filter, 0, len(vv.Filters))

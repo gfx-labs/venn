@@ -101,9 +101,9 @@ func New(params Params) (r Result, err error) {
 
 					remote = callcenter.NewBacker(
 						params.Log.With("remote", cfg.Name, "chain", chain.Name),
-						cfg.ParsedRateLimitBackoff,
-						cfg.ParsedErrorBackoffMin,
-						cfg.ParsedErrorBackoffMax,
+						cfg.RateLimitBackoff.Duration,
+						cfg.ErrorBackoffMin.Duration,
+						cfg.ErrorBackoffMax.Duration,
 					).Middleware(remote)
 
 					remote = callcenter.NewValidator(
@@ -114,8 +114,8 @@ func New(params Params) (r Result, err error) {
 						remote,
 						params.Log.With("remote", cfg.Name, "chain", chain.Name),
 						chain.Id,
-						cfg.ParsedHealthCheckIntervalMin,
-						cfg.ParsedHealthCheckIntervalMax,
+						cfg.HealthCheckIntervalMin.Duration,
+						cfg.HealthCheckIntervalMax.Duration,
 					)
 
 					if cfg.RateLimit != nil {

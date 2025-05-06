@@ -2,7 +2,6 @@ package config
 
 import (
 	"log/slog"
-	"time"
 )
 
 type NodeConfig struct {
@@ -22,6 +21,37 @@ type GatewayConfig struct {
 	Logging Logging  `json:"logging,omitempty"`
 	Metrics *Metrics `json:"metrics,omitempty"`
 	Redis   *Redis   `json:"redis,omitempty"`
+
+	Endpoints []*EndpointSpec `json:"endpoints,omitempty"`
+	Security  *Security       `json:"security,omitempty"`
+}
+
+type Security struct {
+	// these will override used default origin detection, if exist
+	TrustedIpHeaders []string `json:"trusted_ip_headers,omitempty"`
+}
+
+type EndpointSpec struct {
+	Name string `json:"name"`
+	// paths to proxy from gateway -> venn path
+	Paths map[string]string `json:"paths"`
+	// url to the venn to proxy to
+	VennUrl SafeUrl `json:"venn_url"`
+}
+
+type EndpointLimits struct {
+	Abuse []AbuseLimit `json:"abuse,omitempty"`
+	Usage []UsageLimit `json:"usage,omitempty"`
+	//TODO: CustomKeyTemplate string `json:"custom_key_template,omitempty"`
+}
+
+type AbuseLimit struct {
+	Id    string `json:"id"`
+	Total int    `json:"total"`
+}
+
+type UsageLimit struct {
+	Id string `json:"id"`
 }
 
 // possibly shared objects
@@ -94,19 +124,14 @@ type Remote struct {
 	Priority int               `json:"priority,omitempty"`
 	Headers  map[string]string `json:"headers,omitempty"`
 
-	HealthCheckIntervalMin       string        `json:"health_check_interval_min,omitempty"`
-	ParsedHealthCheckIntervalMin time.Duration `json:"-"`
-	HealthCheckIntervalMax       string        `json:"health_check_interval_max,omitempty"`
-	ParsedHealthCheckIntervalMax time.Duration `json:"-"`
+	HealthCheckIntervalMin Duration `json:"health_check_interval_min,omitempty"`
+	HealthCheckIntervalMax Duration `json:"health_check_interval_max,omitempty"`
 
-	RateLimitBackoff       string        ` json:"rate_limit_backoff,omitempty"`
-	ParsedRateLimitBackoff time.Duration `json:"-"`
+	RateLimitBackoff Duration ` json:"rate_limit_backoff,omitempty"`
 
-	ErrorBackoffMin       string        `json:"error_backoff_min,omitempty"`
-	ParsedErrorBackoffMin time.Duration `json:"-"`
+	ErrorBackoffMin Duration `json:"error_backoff_min,omitempty"`
 
-	ErrorBackoffMax       string        `json:"error_backoff_max,omitempty"`
-	ParsedErrorBackoffMax time.Duration `json:"-"`
+	ErrorBackoffMax Duration `json:"error_backoff_max,omitempty"`
 
 	Filters       []string  `json:"filters,omitempty"`
 	ParsedFilters []*Filter `json:"-"`
