@@ -14,6 +14,8 @@ type Identifier struct {
 	Endpoint string
 	Type     string
 	Slug     string
+
+	ExtraCost int
 }
 
 func (i *Identifier) String() string {
@@ -70,7 +72,7 @@ func RuedisRatelimiter(rl rueidislimiter.RateLimiterClient) func(jrpc.Handler) j
 				return
 			}
 			rateLimitKey := id.Key()
-			wait, err := rl.Allow(r.Context(), rateLimitKey)
+			wait, err := rl.AllowN(r.Context(), rateLimitKey, int64(1+id.ExtraCost))
 			if err != nil {
 				w.Send(nil, &jsonrpc.JsonError{
 					Code:    500,

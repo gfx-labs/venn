@@ -129,6 +129,7 @@ func (p *HybridProxy) handleEthSubscription(pool *socketPool, w jrpc.ResponseWri
 					if err != nil {
 						return
 					}
+					// TODO: we need to emit a ratelimit event here.
 				case <-r.Context().Done():
 					return
 				case <-sub.Err():

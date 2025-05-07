@@ -6,8 +6,9 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
+	"time"
 
-	"gfx.cafe/open/jrpc/contrib/jrpcutil"
 	"gfx.cafe/util/go/gotel"
 	"github.com/redis/rueidis"
 	"github.com/redis/rueidis/rueidislimiter"
@@ -25,11 +26,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/fx"
 
+	jrpcjrpcutil "gfx.cafe/open/jrpc/contrib/jrpcutil"
+
 	"gfx.cafe/gfx/venn/lib/callcenter"
 	"gfx.cafe/gfx/venn/lib/config"
+	"gfx.cafe/gfx/venn/lib/jrpcutil"
 	"gfx.cafe/gfx/venn/lib/ratelimit"
 	"gfx.cafe/gfx/venn/lib/subctx"
 	"gfx.cafe/gfx/venn/lib/util"
+	"gfx.cafe/gfx/venn/svc/services/prom"
 	"gfx.cafe/gfx/venn/svc/services/redi"
 )
 
@@ -129,6 +134,41 @@ func New(p Params) (r Result, err error) {
 
 	globalMiddlewares = append(globalMiddlewares,
 		p.Subscription.Middleware(),
+		func(fn jrpc.Handler) jrpc.Handler {
+			return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
+				endpoint, err := subctx.GetEndpointSpec(r.Context())
+				if err != nil {
+					w.Send(nil, err)
+					return
+				}
+				target, err := subctx.GetEndpointPath(r.Context())
+				if err != nil {
+					w.Send(nil, err)
+					return
+				}
+				label := prom.GatewayRequestLabel{
+					Endpoint: endpoint.Name,
+					Target:   target,
+					Method:   r.Method,
+				}
+				if strings.HasSuffix(r.Method, "_subscribe") {
+					label.Success = true
+					prom.Gateway.SubscriptionCreated(label).Inc()
+					defer prom.Gateway.SubscriptionClosed(label).Inc()
+					fn.ServeRPC(w, r)
+					return
+				}
+				start := time.Now()
+				icept := &jrpcutil.Interceptor{}
+				defer func() {
+					dur := time.Since(start)
+					label.Success = icept.Error == nil
+					prom.Gateway.RequestLatency(label).Observe(dur.Seconds() * 1000)
+				}()
+				fn.ServeRPC(icept, r)
+				_ = w.Send(icept.Result, icept.Error)
+			})
+		},
 		ratelimit.WithIdentifier(func(r *jrpc.Request) (*ratelimit.Identifier, error) {
 			endpoint, err := subctx.GetEndpointSpec(r.Context())
 			if err != nil {
@@ -155,7 +195,7 @@ func New(p Params) (r Result, err error) {
 						attribute.String("params", string(req.Params)),
 						attribute.String("path", path)))
 				defer span.End()
-				ew := &jrpcutil.ErrorRecorder{
+				ew := &jrpcjrpcutil.ErrorRecorder{
 					ResponseWriter: w,
 				}
 				// execute next http handler
