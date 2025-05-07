@@ -10,3 +10,8 @@ endpoints:
     paths:
       evm-1: ethereum
       evm-8453: base
+    limits:
+      abuse:
+        - id: "standard"
+          total: 1
+          window: 10s

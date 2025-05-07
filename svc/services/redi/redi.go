@@ -15,14 +15,14 @@ import (
 
 type Redis struct {
 	c       *redis.Client
-	cfg     *config.Redis
+	cfg     config.Redis
 	rueidis rueidis.Client
 }
 
 type RedisParams struct {
 	fx.In
 
-	Config *config.Redis `optional:"true"`
+	Config config.Redis
 	Log    *slog.Logger
 	Lc     fx.Lifecycle
 }
@@ -30,14 +30,10 @@ type RedisParams struct {
 type RedisResult struct {
 	fx.Out
 
-	Redis *Redis `optional:"true"`
+	Redis *Redis
 }
 
 func New(params RedisParams) (res RedisResult, err error) {
-	if params.Config == nil {
-		params.Log.Info("redis disabled", "reason", "no redis config block")
-		return
-	}
 	r := &Redis{
 		cfg: params.Config,
 	}

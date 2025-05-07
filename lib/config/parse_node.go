@@ -18,7 +18,7 @@ type NodeConfigResult struct {
 	fx.Out
 
 	HTTP      *HTTP
-	Redis     *Redis `optional:"true"`
+	Redis     *Redis
 	Ratelimit *AbuseLimit
 	Election  *Election
 	Scylla    *Scylla
@@ -75,7 +75,7 @@ func NodeFileParser(file string) func() (NodeConfigResult, error) {
 		logger.Info("config loaded", "file", file)
 		res := NodeConfigResult{
 			HTTP:      &cfg.HTTP,
-			Redis:     cfg.Redis,
+			Redis:     &cfg.Redis,
 			Ratelimit: cfg.Ratelimit,
 			Chains:    make(map[string]*Chain, len(cfg.Chains)),
 			Remotes:   remotes,
@@ -109,9 +109,8 @@ func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 		return nil, err
 	}
 
-	if c.Redis != nil {
-		c.Redis.Namespace = util.Coa(c.Redis.Namespace, "venn-undefined")
-	}
+	c.Redis.Namespace = util.Coa(c.Redis.Namespace, "venn-undefined")
+	c.Redis.URI = util.Coa(c.Redis.URI, "embedded")
 
 	if c.Ratelimit != nil {
 		c.Ratelimit.Total = util.Coa(c.Ratelimit.Total, 200)

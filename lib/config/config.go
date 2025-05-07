@@ -9,7 +9,7 @@ type NodeConfig struct {
 	Logging   Logging     `json:"logging,omitempty"`
 	Metrics   *Metrics    `json:"metrics,omitempty"`
 	Election  Election    `json:"election,omitempty"`
-	Redis     *Redis      `json:"redis,omitempty"`
+	Redis     Redis       `json:"redis,omitempty"`
 	Ratelimit *AbuseLimit `json:"ratelimit,omitempty"`
 	Chains    []*Chain    `json:"chains,omitempty"`
 	Scylla    *Scylla     `json:"scylla,omitempty"`
@@ -20,13 +20,14 @@ type GatewayConfig struct {
 	HTTP
 	Logging Logging  `json:"logging,omitempty"`
 	Metrics *Metrics `json:"metrics,omitempty"`
-	Redis   *Redis   `json:"redis,omitempty"`
+	Redis   Redis    `json:"redis,omitempty"`
 
 	Endpoints []*EndpointSpec `json:"endpoints,omitempty"`
 	Security  *Security       `json:"security,omitempty"`
 }
 
 type Security struct {
+	TrustedOrigins []string `json:"trusted_origins,omitempty"`
 	// these will override used default origin detection, if exist
 	TrustedIpHeaders []string `json:"trusted_ip_headers,omitempty"`
 }

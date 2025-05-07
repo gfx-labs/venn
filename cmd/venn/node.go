@@ -12,7 +12,6 @@ import (
 	"gfx.cafe/gfx/venn/svc/atoms/subcenter"
 	"gfx.cafe/gfx/venn/svc/atoms/vennstore"
 	"gfx.cafe/gfx/venn/svc/middlewares/promcollect"
-	"gfx.cafe/gfx/venn/svc/middlewares/ratelimit"
 	"gfx.cafe/gfx/venn/svc/quarks/cluster"
 	"gfx.cafe/gfx/venn/svc/services/prom"
 	"gfx.cafe/gfx/venn/svc/services/redi"
@@ -72,7 +71,6 @@ func (o *StartNode) Run() error {
 			NewSubscriptionEngine,
 			// blockland.New,
 			promcollect.New,
-			ratelimit.New,
 		),
 		// http handler
 		fx.Provide(

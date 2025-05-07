@@ -17,7 +17,7 @@ type GatewayConfigResult struct {
 	fx.Out
 
 	HTTP    *HTTP
-	Redis   *Redis   `optional:"true"`
+	Redis   Redis
 	Metrics *Metrics `optional:"true"`
 
 	Endpoints map[string]*EndpointSpec
@@ -94,12 +94,23 @@ func ParseGatewayConfig(file string, data []byte) (*GatewayConfig, error) {
 		return nil, err
 	}
 
-	if c.Redis != nil {
-		c.Redis.Namespace = util.Coa(c.Redis.Namespace, "gateway-undefined")
-	}
+	c.Redis.Namespace = util.Coa(c.Redis.Namespace, "gateway-undefined")
+	c.Redis.URI = util.Coa(c.Redis.URI, "embedded")
 
 	if c.Security == nil {
 		c.Security = &Security{}
+	}
+	for _, e := range c.Endpoints {
+		for idx, v := range e.Limits.Abuse {
+			if v.Id == "" {
+				return nil, fmt.Errorf("endpoint %s abuse limit %d has no id", e.Name, idx)
+			}
+		}
+		for idx, v := range e.Limits.Usage {
+			if v.Id == "" {
+				return nil, fmt.Errorf("endpoint %s usage limit %d has no id", e.Name, idx)
+			}
+		}
 	}
 
 	return c, nil
