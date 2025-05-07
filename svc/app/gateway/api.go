@@ -58,29 +58,6 @@ func New(p Params) (r Result, err error) {
 
 	waiter := util.NewWaiter()
 	// otel tracing
-	traceHandler := func(next jrpc.Handler) jrpc.Handler {
-		tracer := otel.Tracer("jrpc")
-		fn := jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
-			path, _ := subctx.GetEndpointPath(req.Context())
-			ctx, span := tracer.Start(req.Context(), req.Method,
-				trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(
-					attribute.String("method", req.Method),
-					attribute.String("params", string(req.Params)),
-					attribute.String("path", path)))
-			defer span.End()
-			ew := &jrpcutil.ErrorRecorder{
-				ResponseWriter: w,
-			}
-			// execute next http handler
-			next.ServeRPC(w, req.WithContext(ctx))
-			if err := ew.Error(); err != nil {
-				span.SetStatus(codes.Error, fmt.Sprintf("error: %s", err))
-				span.RecordError(err)
-			}
-		})
-		return fn
-	}
-
 	proxies := make(map[string]map[string]jrpc.Handler)
 	for _, endpoint := range p.Endpoints {
 		hybridProxy := callcenter.NewHybridProxy(p.Logger, string(endpoint.VennUrl))
@@ -168,7 +145,28 @@ func New(p Params) (r Result, err error) {
 			}, nil
 		}),
 		waiter.Middleware,
-		traceHandler,
+		func(next jrpc.Handler) jrpc.Handler {
+			tracer := otel.Tracer("jrpc")
+			fn := jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
+				path, _ := subctx.GetEndpointPath(req.Context())
+				ctx, span := tracer.Start(req.Context(), req.Method,
+					trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(
+						attribute.String("method", req.Method),
+						attribute.String("params", string(req.Params)),
+						attribute.String("path", path)))
+				defer span.End()
+				ew := &jrpcutil.ErrorRecorder{
+					ResponseWriter: w,
+				}
+				// execute next http handler
+				next.ServeRPC(w, req.WithContext(ctx))
+				if err := ew.Error(); err != nil {
+					span.SetStatus(codes.Error, fmt.Sprintf("error: %s", err))
+					span.RecordError(err)
+				}
+			})
+			return fn
+		},
 	)
 
 	jrpcHandler := jrpc.Handler(baseHandler)
