@@ -98,5 +98,9 @@ func ParseGatewayConfig(file string, data []byte) (*GatewayConfig, error) {
 		c.Redis.Namespace = util.Coa(c.Redis.Namespace, "gateway-undefined")
 	}
 
+	if c.Security == nil {
+		c.Security = &Security{}
+	}
+
 	return c, nil
 }

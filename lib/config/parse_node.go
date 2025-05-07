@@ -19,7 +19,7 @@ type NodeConfigResult struct {
 
 	HTTP      *HTTP
 	Redis     *Redis `optional:"true"`
-	Ratelimit *RateLimit
+	Ratelimit *AbuseLimit
 	Election  *Election
 	Scylla    *Scylla
 	Chains    map[string]*Chain
@@ -114,7 +114,7 @@ func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 	}
 
 	if c.Ratelimit != nil {
-		c.Ratelimit.Limit = util.Coa(c.Ratelimit.Limit, 200)
+		c.Ratelimit.Total = util.Coa(c.Ratelimit.Total, 200)
 		c.Ratelimit.Window = util.Coa(c.Ratelimit.Window, Duration{time.Second * 10})
 	}
 

@@ -18,7 +18,7 @@ import (
 )
 
 type Limiter struct {
-	config *config.RateLimit
+	config *config.AbuseLimit
 	redis  *redi.Redis
 	log    *slog.Logger
 
@@ -28,7 +28,7 @@ type Limiter struct {
 type LimiterParams struct {
 	fx.In
 
-	Config *config.RateLimit
+	Config *config.AbuseLimit
 	Log    *slog.Logger
 	Redis  *redi.Redis `optional:"true"`
 
@@ -55,7 +55,7 @@ func New(params LimiterParams) (LimiterResult, error) {
 		},
 		// TODO: make this configurable
 		KeyPrefix: params.Redis.Namespace() + "ratelimit:actions:",
-		Limit:     params.Config.Limit,
+		Limit:     params.Config.Total,
 		Window:    params.Config.Window.Duration,
 	})
 	if err != nil {

@@ -1,7 +1,5 @@
 gfx.cafe/open/gotoprom v0.0.2 h1:LNypdpXFYSMoTewDSokZsOiZKcbewEVbOpkFUoQwnkA=
 gfx.cafe/open/gotoprom v0.0.2/go.mod h1:osabAhqSCG+hqtBeUTjFMbzqB2kZFK0SpRYRqmS5Of4=
-gfx.cafe/open/jrpc v0.6.1 h1:x8Scya2gQRAP2YKSPFDrdDr39pBn5V3PWHyv4Q67VeQ=
-gfx.cafe/open/jrpc v0.6.1/go.mod h1:ESU0T7eQiJHxVrwfnONOqBieF5gn6LcoG0emzBQlScc=
 gfx.cafe/open/websocket v1.10.0 h1:ahVbietTKg9QhulBe4xcPw0F4mv/VOMEZPYFGhmGwaw=
 gfx.cafe/open/websocket v1.10.0/go.mod h1:GsEYIYJuzELmJjV0HBt8JOye0rvsBCCPEZt477uFb/E=
 gfx.cafe/util/go v1.12.1-0.20240717000937-c42e930797c2 h1:Y7A7JihRpJLnzQwWbJ+5SgQqs3DnGtR+rbpckDdBPYo=
