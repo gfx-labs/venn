@@ -32,7 +32,9 @@ func GetChain(ctx context.Context) (*config.Chain, error) {
 	return valS, nil
 }
 
-func IsInternal(ctx context.Context) bool {
-	val := ctx.Value(ContextKeyInternal)
-	return val.(bool)
+func IsInternal(ctx context.Context) (b bool) {
+	if val := ctx.Value(ContextKeyInternal); val != nil {
+		b, _ = val.(bool)
+	}
+	return
 }
