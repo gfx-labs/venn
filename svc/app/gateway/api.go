@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"go4.org/netipx"
+
 	"gfx.cafe/util/go/gotel"
 	"github.com/redis/rueidis"
 	"github.com/redis/rueidis/rueidislimiter"
@@ -17,7 +19,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	"inet.af/netaddr"
 
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/contrib/codecs"
@@ -228,10 +229,10 @@ func New(p Params) (r Result, err error) {
 	// bind the jrpc handler to a http+websocket codec to host on the http server
 	serverHandler := codecs.HttpWebsocketHandler(jrpcHandler, nil)
 
-	b := &netaddr.IPSetBuilder{}
+	b := &netipx.IPSetBuilder{}
 	if p.Security != nil {
 		for _, v := range p.Security.TrustedOrigins {
-			parsedPrefix, err := netaddr.ParseIPPrefix(v)
+			parsedPrefix, err := netipx.ParseIPPrefix(v)
 			if err != nil {
 				return r, fmt.Errorf("invalid trusted origin %s: %w", v, err)
 			}
@@ -247,7 +248,7 @@ func New(p Params) (r Result, err error) {
 		if p.Security != nil {
 			r.Use(func(next http.Handler) http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					parsedRemote, err := netaddr.ParseIP(util.HostFromRemoteAddr(r.RemoteAddr))
+					parsedRemote, err := netipx.ParseIP(util.HostFromRemoteAddr(r.RemoteAddr))
 					// if remote is in the trusted ipset, trust the headers that come from it
 					if err == nil && ipset.Contains(parsedRemote) {
 						for _, h := range p.Security.TrustedIpHeaders {
