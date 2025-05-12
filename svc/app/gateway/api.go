@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -232,7 +233,7 @@ func New(p Params) (r Result, err error) {
 	b := &netipx.IPSetBuilder{}
 	if p.Security != nil {
 		for _, v := range p.Security.TrustedOrigins {
-			parsedPrefix, err := netipx.ParseIPPrefix(v)
+			parsedPrefix, err := netip.ParsePrefix(v)
 			if err != nil {
 				return r, fmt.Errorf("invalid trusted origin %s: %w", v, err)
 			}
@@ -248,7 +249,7 @@ func New(p Params) (r Result, err error) {
 		if p.Security != nil {
 			r.Use(func(next http.Handler) http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					parsedRemote, err := netipx.ParseIP(util.HostFromRemoteAddr(r.RemoteAddr))
+					parsedRemote, err := netip.ParseAddr(util.HostFromRemoteAddr(r.RemoteAddr))
 					// if remote is in the trusted ipset, trust the headers that come from it
 					if err == nil && ipset.Contains(parsedRemote) {
 						for _, h := range p.Security.TrustedIpHeaders {
