@@ -11,6 +11,12 @@ telemetry:
   jetstream_stream_config:
     name: "gateway-requests"
     subjects: ["gateway-requests"]
+security:
+  allowed_origins:
+    - https://oku.trade
+    - https://*.staging.gfx.town
+    - https://*.*.staging.gfx.town
+    - '*://localhost:*'
 endpoint:
   name: public
   venn_url: http://localhost:8545

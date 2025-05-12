@@ -39,6 +39,8 @@ type Security struct {
 	TrustedOrigins []string `json:"trusted_origins,omitempty"`
 	// these will override used default origin detection, if exist
 	TrustedIpHeaders []string `json:"trusted_ip_headers,omitempty"`
+
+	AllowedOrigins []string `json:"allowed_origins,omitempty"`
 }
 
 type EndpointSpec struct {

@@ -35,6 +35,7 @@ import (
 	"gfx.cafe/gfx/venn/lib/ratelimit"
 	"gfx.cafe/gfx/venn/lib/subctx"
 	"gfx.cafe/gfx/venn/lib/util"
+	"gfx.cafe/gfx/venn/lib/util/origin"
 	"gfx.cafe/gfx/venn/svc/quarks/telemetry"
 	"gfx.cafe/gfx/venn/svc/services/prom"
 	"gfx.cafe/gfx/venn/svc/services/redi"
@@ -283,6 +284,25 @@ func New(p Params) (r Result, err error) {
 								r.RemoteAddr = val
 								break
 							}
+						}
+					}
+					if len(p.Security.AllowedOrigins) > 0 {
+						o := r.Header.Get("Origin")
+						matched := false
+						for _, v := range p.Security.AllowedOrigins {
+							match, err := origin.Match(o, v)
+							if err != nil {
+								http.Error(w, "invalid origin", http.StatusForbidden)
+								return
+							}
+							if match {
+								matched = true
+								break
+							}
+						}
+						if !matched {
+							http.Error(w, "origin not allowed", http.StatusForbidden)
+							return
 						}
 					}
 					next.ServeHTTP(w, r)
