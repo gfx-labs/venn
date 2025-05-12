@@ -2,6 +2,8 @@ package config
 
 import (
 	"log/slog"
+
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 type NodeConfig struct {
@@ -18,12 +20,19 @@ type NodeConfig struct {
 
 type GatewayConfig struct {
 	HTTP
-	Logging Logging  `json:"logging,omitempty"`
-	Metrics *Metrics `json:"metrics,omitempty"`
-	Redis   Redis    `json:"redis,omitempty"`
+	Logging   Logging    `json:"logging,omitempty"`
+	Metrics   *Metrics   `json:"metrics,omitempty"`
+	Redis     Redis      `json:"redis,omitempty"`
+	Nats      *Nats      `json:"nats,omitempty"`
+	Telemetry *Telemetry `json:"telemetry,omitempty"`
 
-	Endpoints []*EndpointSpec `json:"endpoints,omitempty"`
-	Security  *Security       `json:"security,omitempty"`
+	Endpoint *EndpointSpec `json:"endpoint,omitempty"`
+	Security *Security     `json:"security,omitempty"`
+}
+
+type Telemetry struct {
+	Enabled               bool                    `json:"enabled,omitempty"`
+	JetstreamStreamConfig *jetstream.StreamConfig `json:"jetstream_stream_config,omitempty"`
 }
 
 type Security struct {
@@ -81,6 +90,10 @@ type Redis struct {
 	URI       SafeUrl   `json:"uri,omitempty"`
 	Cluster   []SafeUrl `json:"cluster,omitempty"`
 	Namespace string    `json:"namespace"`
+}
+
+type Nats struct {
+	URI SafeUrl `json:"uri"`
 }
 
 type Scylla struct {

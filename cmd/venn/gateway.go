@@ -6,6 +6,8 @@ import (
 
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/svc/app/gateway"
+	"gfx.cafe/gfx/venn/svc/quarks/telemetry"
+	"gfx.cafe/gfx/venn/svc/services/gnat"
 	"gfx.cafe/gfx/venn/svc/services/prom"
 	"gfx.cafe/gfx/venn/svc/services/redi"
 	"gfx.cafe/open/jrpc/contrib/extension/subscription"
@@ -36,8 +38,12 @@ func (o *StartGateway) Run() error {
 		fx.Provide(
 			prom.New,
 			redi.New,
+			gnat.New,
 		),
 		// simple services (quarks)
+		fx.Provide(
+			telemetry.New,
+		),
 		// middlewares
 		fx.Provide(
 			NewSubscriptionEngine,

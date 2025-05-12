@@ -16,12 +16,14 @@ import (
 type GatewayConfigResult struct {
 	fx.Out
 
-	HTTP    *HTTP
-	Redis   Redis
-	Metrics *Metrics `optional:"true"`
+	HTTP      *HTTP
+	Redis     Redis
+	Metrics   *Metrics `optional:"true"`
+	Nats      *Nats
+	Telemetry *Telemetry
 
-	Endpoints map[string]*EndpointSpec
-	Security  *Security
+	Endpoint *EndpointSpec
+	Security *Security
 
 	Log *slog.Logger
 }
@@ -67,21 +69,16 @@ func GatewayFileParser(file string) func() (GatewayConfigResult, error) {
 		}
 		logger.Info("config loaded", "file", file)
 
-		endpoints := make(map[string]*EndpointSpec)
-		for _, v := range cfg.Endpoints {
-			if _, ok := endpoints[v.Name]; ok {
-				return GatewayConfigResult{}, fmt.Errorf("endpoint name conflict: %s", v.Name)
-			}
-			endpoints[v.Name] = v
-		}
 		res := GatewayConfigResult{
-			HTTP:    &cfg.HTTP,
-			Redis:   cfg.Redis,
-			Log:     logger,
-			Metrics: cfg.Metrics,
+			HTTP:      &cfg.HTTP,
+			Redis:     cfg.Redis,
+			Log:       logger,
+			Metrics:   cfg.Metrics,
+			Nats:      cfg.Nats,
+			Telemetry: cfg.Telemetry,
 
-			Security:  cfg.Security,
-			Endpoints: endpoints,
+			Security: cfg.Security,
+			Endpoint: cfg.Endpoint,
 		}
 		return res, nil
 	}
@@ -100,16 +97,14 @@ func ParseGatewayConfig(file string, data []byte) (*GatewayConfig, error) {
 	if c.Security == nil {
 		c.Security = &Security{}
 	}
-	for _, e := range c.Endpoints {
-		for idx, v := range e.Limits.Abuse {
-			if v.Id == "" {
-				return nil, fmt.Errorf("endpoint %s abuse limit %d has no id", e.Name, idx)
-			}
+	for idx, v := range c.Endpoint.Limits.Abuse {
+		if v.Id == "" {
+			return nil, fmt.Errorf("endpoint abuse limit %d has no id", idx)
 		}
-		for idx, v := range e.Limits.Usage {
-			if v.Id == "" {
-				return nil, fmt.Errorf("endpoint %s usage limit %d has no id", e.Name, idx)
-			}
+	}
+	for idx, v := range c.Endpoint.Limits.Usage {
+		if v.Id == "" {
+			return nil, fmt.Errorf("endpointusage limit %d has no id", idx)
 		}
 	}
 

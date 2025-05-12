@@ -4,14 +4,21 @@ logging:
 redis:
   namespace: venn-gateway-dev
   uri: redis://localhost:6379
-endpoints:
-  - name: public
-    venn_url: http://localhost:8545
-    paths:
-      evm-1: ethereum
-      evm-8453: base
-    limits:
-      abuse:
-        - id: "standard"
-          total: 1
-          window: 10s
+nats:
+  uri: nats://localhost:4222
+telemetry:
+  enabled: true
+  jetstream_stream_config:
+    name: "gateway-requests"
+    subjects: ["gateway-requests"]
+endpoint:
+  name: public
+  venn_url: http://localhost:8545
+  paths:
+    evm-1: ethereum
+    evm-8453: base
+  limits:
+    abuse:
+      - id: "rps-simple"
+        total: 10
+        window: 10s

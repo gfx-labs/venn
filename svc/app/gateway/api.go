@@ -32,10 +32,10 @@ import (
 
 	"gfx.cafe/gfx/venn/lib/callcenter"
 	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
 	"gfx.cafe/gfx/venn/lib/ratelimit"
 	"gfx.cafe/gfx/venn/lib/subctx"
 	"gfx.cafe/gfx/venn/lib/util"
+	"gfx.cafe/gfx/venn/svc/quarks/telemetry"
 	"gfx.cafe/gfx/venn/svc/services/prom"
 	"gfx.cafe/gfx/venn/svc/services/redi"
 )
@@ -45,10 +45,12 @@ type Params struct {
 
 	Lc           fx.Lifecycle
 	Subscription *subscription.Engine `optional:"true"`
-	Endpoints    map[string]*config.EndpointSpec
+	Endpoint     *config.EndpointSpec
 	Security     *config.Security
 	Logger       *slog.Logger
 	Redi         *redi.Redis
+
+	Telemetry *telemetry.Telemetry
 
 	// head following for even faster access to the latest block.
 
@@ -62,64 +64,33 @@ type Result struct {
 }
 
 func New(p Params) (r Result, err error) {
-
 	waiter := util.NewWaiter()
-	// otel tracing
-	proxies := make(map[string]map[string]jrpc.Handler)
-	for _, endpoint := range p.Endpoints {
-		hybridProxy := callcenter.NewHybridProxy(p.Logger, string(endpoint.VennUrl))
-		proxies[endpoint.Name] = map[string]jrpc.Handler{}
-		p.Logger.Info("registering endpoint", "name", endpoint.Name, "paths", len(endpoint.Paths))
-		// per endpoint middleware that are applied to each path handler
-		var localMiddleware []func(jrpc.Handler) jrpc.Handler = []func(jrpc.Handler) jrpc.Handler{}
-
-		for _, v := range endpoint.Limits.Abuse {
-			rc, err := rueidislimiter.NewRateLimiter(rueidislimiter.RateLimiterOption{
-				ClientBuilder: func(option rueidis.ClientOption) (rueidis.Client, error) {
-					return p.Redi.R(), nil
-				},
-				KeyPrefix: fmt.Sprintf("%s:gateway:abuse:%s:%s", p.Redi.Namespace(), endpoint.Name, v.Id),
-				Limit:     v.Total,
-				Window:    v.Window.Duration,
-			})
-			if err != nil {
-				return r, err
-			}
-			localMiddleware = append(localMiddleware, ratelimit.RuedisRatelimiter(rc))
+	endpointProxies := make(map[string]jrpc.Handler)
+	maxRequestBodySize := 5 * 1024 * 1024
+	hybridProxy := callcenter.NewHybridProxy(p.Logger, string(p.Endpoint.VennUrl))
+	var localMiddleware []func(jrpc.Handler) jrpc.Handler = []func(jrpc.Handler) jrpc.Handler{}
+	for _, to := range p.Endpoint.Paths {
+		_, ok := endpointProxies[to]
+		if ok {
+			continue
 		}
-		for _, to := range endpoint.Paths {
-			_, ok := proxies[endpoint.Name][to]
-			if ok {
-				continue
-			}
-			endpointPathHandler, err := hybridProxy.EndpointHandler(to)
-			if err != nil {
-				return r, err
-			}
-			handler := jrpc.Handler(endpointPathHandler)
-			for _, m := range localMiddleware {
-				if m != nil {
-					handler = m(handler)
-				}
-			}
-			proxies[endpoint.Name][to] = handler
+		endpointPathHandler, err := hybridProxy.EndpointHandler(to)
+		if err != nil {
+			return r, err
 		}
+		handler := jrpc.Handler(endpointPathHandler)
+		for _, m := range localMiddleware {
+			if m != nil {
+				handler = m(handler)
+			}
+		}
+		endpointProxies[to] = handler
 	}
 
 	baseHandler := jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
-		endpoint, err := subctx.GetEndpointSpec(r.Context())
-		if err != nil {
-			w.Send(nil, err)
-			return
-		}
 		target, err := subctx.GetEndpointPath(r.Context())
 		if err != nil {
 			w.Send(nil, err)
-			return
-		}
-		endpointProxies, ok := proxies[endpoint.Name]
-		if !ok {
-			w.Send(nil, fmt.Errorf("no endpoint proxies for %s", endpoint.Name))
 			return
 		}
 		targetProxy, ok := endpointProxies[target]
@@ -134,8 +105,48 @@ func New(p Params) (r Result, err error) {
 	// global middleware that apply before endpoint routing goes here
 	var globalMiddlewares []func(jrpc.Handler) jrpc.Handler = []func(jrpc.Handler) jrpc.Handler{}
 
+	globalMiddlewares = append(globalMiddlewares, func(next jrpc.Handler) jrpc.Handler {
+		return jsonrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
+			id, err := ratelimit.IdentifierFromContext(r.Context())
+			if err != nil {
+				w.Send(nil, err)
+				return
+			}
+			entry := &telemetry.Entry{
+				Timestamp: time.Now(),
+				UsageKey:  id.Key(),
+				Method:    r.Method,
+				Params:    r.Params,
+				Metadata:  map[string]any{},
+				Extra:     map[string]any{},
+				RequestID: getTraceID(r.Context()),
+			}
+			next.ServeRPC(w, r)
+			entry.Duration = time.Since(entry.Timestamp)
+			err = p.Telemetry.Publish(r.Context(), entry)
+			if err != nil {
+				w.Send(nil, err)
+				return
+			}
+		})
+	})
+
+	for _, v := range p.Endpoint.Limits.Abuse {
+		rc, err := rueidislimiter.NewRateLimiter(rueidislimiter.RateLimiterOption{
+			ClientBuilder: func(option rueidis.ClientOption) (rueidis.Client, error) {
+				return p.Redi.R(), nil
+			},
+			KeyPrefix: fmt.Sprintf("%s:gateway:abuse:%s:%s", p.Redi.Namespace(), p.Endpoint.Name, v.Id),
+			Limit:     v.Total,
+			Window:    v.Window.Duration,
+		})
+		if err != nil {
+			return r, err
+		}
+		globalMiddlewares = append(globalMiddlewares, ratelimit.RuedisRatelimiter(rc))
+	}
+
 	globalMiddlewares = append(globalMiddlewares,
-		p.Subscription.Middleware(),
 		func(fn jrpc.Handler) jrpc.Handler {
 			return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 				endpoint, err := subctx.GetEndpointSpec(r.Context())
@@ -161,14 +172,15 @@ func New(p Params) (r Result, err error) {
 					return
 				}
 				start := time.Now()
-				icept := &jrpcutil.Interceptor{}
+				icept := &jrpcjrpcutil.ErrorRecorder{
+					ResponseWriter: w,
+				}
 				defer func() {
 					dur := time.Since(start)
-					label.Success = icept.Error == nil
+					label.Success = icept.Error() == nil
 					prom.Gateway.RequestLatency(label).Observe(dur.Seconds() * 1000)
 				}()
 				fn.ServeRPC(icept, r)
-				_ = w.Send(icept.Result, icept.Error)
 			})
 		},
 		ratelimit.WithIdentifier(func(r *jrpc.Request) (*ratelimit.Identifier, error) {
@@ -186,6 +198,7 @@ func New(p Params) (r Result, err error) {
 				Slug:     slug,
 			}, nil
 		}),
+		p.Subscription.Middleware(),
 		waiter.Middleware,
 		func(next jrpc.Handler) jrpc.Handler {
 			tracer := otel.Tracer("jrpc")
@@ -208,6 +221,18 @@ func New(p Params) (r Result, err error) {
 				}
 			})
 			return fn
+		},
+
+		// make sure request body is not larger than 5mb
+		func(next jrpc.Handler) jrpc.Handler {
+			return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
+				// TODO: make this configurable
+				if len(req.Params) > maxRequestBodySize {
+					w.Send(nil, fmt.Errorf("request body too large"))
+					return
+				}
+				next.ServeRPC(w, req)
+			})
 		},
 	)
 
@@ -264,18 +289,27 @@ func New(p Params) (r Result, err error) {
 				})
 			})
 		}
+		r.Use(func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// check max size. 5mb for now is more than reasonable.
+				// TODO: make this configurable
+				if int(r.ContentLength) > maxRequestBodySize {
+					w.WriteHeader(http.StatusRequestEntityTooLarge)
+					return
+				}
+				h.ServeHTTP(w, r)
+			})
+		})
 		r.Use(otelchi.Middleware("gateway", otelchi.WithChiRoutes(r), otelchi.WithFilter(
 			func(r *http.Request) bool {
 				return r.Header.Get("upgrade") == ""
 			})))
-		for _, endpoint := range p.Endpoints {
-			for from, to := range endpoint.Paths {
-				r.Mount("/"+endpoint.Name+"/"+from, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					r = r.WithContext(subctx.WithEndpointSpec(r.Context(), endpoint))
-					r = r.WithContext(subctx.WithEndpointPath(r.Context(), to))
-					serverHandler.ServeHTTP(w, r)
-				}))
-			}
+		for from, to := range p.Endpoint.Paths {
+			r.Mount("/"+from, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r = r.WithContext(subctx.WithEndpointPath(r.Context(), to))
+				r = r.WithContext(subctx.WithEndpointSpec(r.Context(), p.Endpoint))
+				serverHandler.ServeHTTP(w, r)
+			}))
 		}
 		// health check
 		r.Mount("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -284,4 +318,13 @@ func New(p Params) (r Result, err error) {
 		// TODO: eventually stats/dashboard will be here.
 	}
 	return
+}
+
+func getTraceID(ctx context.Context) string {
+	spanCtx := trace.SpanContextFromContext(ctx)
+	if spanCtx.HasTraceID() {
+		traceID := spanCtx.TraceID()
+		return traceID.String()
+	}
+	return ""
 }
