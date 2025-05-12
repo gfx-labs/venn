@@ -2,32 +2,32 @@ package config
 
 import (
 	"log/slog"
-	"time"
 )
 
 type NodeConfig struct {
 	HTTP
-	Logging   Logging    `json:"logging,omitempty"`
-	Metrics   *Metrics   `json:"metrics,omitempty"`
-	Election  Election   `json:"election,omitempty"`
-	Redis     *Redis     `json:"redis,omitempty"`
-	Ratelimit *RateLimit `json:"ratelimit,omitempty"`
-	Chains    []*Chain   `json:"chains,omitempty"`
-	Scylla    *Scylla    `json:"scylla,omitempty"`
-	Filters   []*Filter  `json:"filters,omitempty"`
+	Logging   Logging     `json:"logging,omitempty"`
+	Metrics   *Metrics    `json:"metrics,omitempty"`
+	Election  Election    `json:"election,omitempty"`
+	Redis     Redis       `json:"redis,omitempty"`
+	Ratelimit *AbuseLimit `json:"ratelimit,omitempty"`
+	Chains    []*Chain    `json:"chains,omitempty"`
+	Scylla    *Scylla     `json:"scylla,omitempty"`
+	Filters   []*Filter   `json:"filters,omitempty"`
 }
 
 type GatewayConfig struct {
 	HTTP
 	Logging Logging  `json:"logging,omitempty"`
 	Metrics *Metrics `json:"metrics,omitempty"`
-	Redis   *Redis   `json:"redis,omitempty"`
+	Redis   Redis    `json:"redis,omitempty"`
 
 	Endpoints []*EndpointSpec `json:"endpoints,omitempty"`
 	Security  *Security       `json:"security,omitempty"`
 }
 
 type Security struct {
+	TrustedOrigins []string `json:"trusted_origins,omitempty"`
 	// these will override used default origin detection, if exist
 	TrustedIpHeaders []string `json:"trusted_ip_headers,omitempty"`
 }
@@ -35,11 +35,11 @@ type Security struct {
 type EndpointSpec struct {
 	Name string `json:"name"`
 	// paths to proxy from gateway -> venn path
-	Paths map[string]string `json:"paths"`
+	Paths  map[string]string `json:"paths"`
+	Limits EndpointLimits    `json:"limits,omitempty"`
+
 	// url to the venn to proxy to
 	VennUrl SafeUrl `json:"venn_url"`
-
-	Limits EndpointLimits `json:"limits,omitempty"`
 }
 
 type EndpointLimits struct {
@@ -49,9 +49,9 @@ type EndpointLimits struct {
 }
 
 type AbuseLimit struct {
-	Id     string        `json:"id"`
-	Total  int           `json:"total"`
-	Window time.Duration `json:"window"`
+	Id     string   `json:"id"`
+	Total  int      `json:"total"`
+	Window Duration `json:"window"`
 }
 
 type UsageLimit struct {
@@ -89,11 +89,6 @@ type Scylla struct {
 	CertFile string  `json:"certfile,omitempty"`
 
 	Hosts []string `json:"hosts,omitempty"`
-}
-
-type RateLimit struct {
-	Window Duration `json:"window,omitempty"`
-	Limit  int      `json:"limit,omitempty"`
 }
 
 type Chain struct {

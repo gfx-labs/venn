@@ -1,0 +1,17 @@
+bind: localhost:8888
+logging:
+  level: debug
+redis:
+  namespace: venn-gateway-dev
+  uri: redis://localhost:6379
+endpoints:
+  - name: public
+    venn_url: http://localhost:8545
+    paths:
+      evm-1: ethereum
+      evm-8453: base
+    limits:
+      abuse:
+        - id: "standard"
+          total: 1
+          window: 10s

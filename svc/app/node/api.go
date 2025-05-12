@@ -3,12 +3,16 @@ package node
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 
 	"gfx.cafe/gfx/venn/svc/middlewares/forger"
+	"gfx.cafe/gfx/venn/svc/services/redi"
 
 	"gfx.cafe/open/jrpc/contrib/jrpcutil"
 	"gfx.cafe/util/go/gotel"
+	"github.com/redis/rueidis"
+	"github.com/redis/rueidis/rueidislimiter"
 	"github.com/riandyrn/otelchi"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -23,6 +27,7 @@ import (
 	"go.uber.org/fx"
 
 	"gfx.cafe/gfx/venn/lib/config"
+	"gfx.cafe/gfx/venn/lib/ratelimit"
 	"gfx.cafe/gfx/venn/lib/subctx"
 	"gfx.cafe/gfx/venn/lib/util"
 	"gfx.cafe/gfx/venn/svc/atoms/cacher"
@@ -31,15 +36,17 @@ import (
 	"gfx.cafe/gfx/venn/svc/quarks/cluster"
 
 	"gfx.cafe/gfx/venn/svc/middlewares/promcollect"
-	"gfx.cafe/gfx/venn/svc/middlewares/ratelimit"
 )
 
 type Params struct {
 	fx.In
 
-	Lc           fx.Lifecycle
-	Chains       map[string]*config.Chain
-	RateLimiter  *ratelimit.Limiter   `optional:"true"`
+	Lc         fx.Lifecycle
+	Chains     map[string]*config.Chain
+	AbuseLimit *config.AbuseLimit
+
+	Redis *redi.Redis
+
 	Subscription *subscription.Engine `optional:"true"`
 	// Blockland        *blockland.Blockland   `optional:"true"`
 	RequestCollector *promcollect.Collector `optional:"true"`
@@ -66,34 +73,56 @@ type Result struct {
 }
 
 func New(p Params) (r Result, err error) {
-	handler := p.Clusters.Middleware(nil)
 
-	handler = p.Cacher.Middleware(handler)
-
-	handler = p.Stalker.Middleware(handler)
-
-	handler = (&forger.Forger{}).Middleware(handler)
-
-	handler = p.Subcenter.Middleware(handler)
-
-	if p.RequestCollector != nil {
-		handler = p.RequestCollector.Middleware(handler)
+	waiter := util.NewWaiter()
+	middlewares := []jrpc.Middleware{
+		p.Cacher.Middleware,
+		p.Stalker.Middleware,
+		(&forger.Forger{}).Middleware,
+		p.Subcenter.Middleware,
 	}
 
-	if p.RateLimiter != nil {
-		handler = p.RateLimiter.Middleware(handler)
+	if p.RequestCollector != nil {
+		middlewares = append(middlewares, p.RequestCollector.Middleware)
+	}
+
+	if p.AbuseLimit != nil && p.AbuseLimit.Total > 0 {
+		rLimiter, err := rueidislimiter.NewRateLimiter(rueidislimiter.RateLimiterOption{
+			ClientBuilder: func(option rueidis.ClientOption) (rueidis.Client, error) {
+				return p.Redis.R(), nil
+			},
+			// TODO: make this configurable
+			KeyPrefix: p.Redis.Namespace() + "ratelimit:actions:",
+			Limit:     p.AbuseLimit.Total,
+			Window:    p.AbuseLimit.Window.Duration,
+		})
+		// this cant really error because the client builder never errors
+		if err != nil {
+			return r, err
+		}
+		middlewares = append(middlewares, ratelimit.RuedisRatelimiter(rLimiter))
 	}
 
 	if p.Subscription != nil {
-		handler = p.Subscription.Middleware()(handler)
+		middlewares = append(middlewares, p.Subscription.Middleware())
 	}
 
-	// waiter is last before otel tracing
-	waiter := util.NewWaiter()
-	handler = waiter.Middleware(handler)
+	middlewares = append(middlewares, ratelimit.WithIdentifier(func(r *jrpc.Request) (*ratelimit.Identifier, error) {
+		slug, _, err := net.SplitHostPort(r.Peer.RemoteAddr)
+		if err == nil {
+			slug = r.Peer.RemoteAddr
+		}
+		return &ratelimit.Identifier{
+			Endpoint: "venn$internal",
+			Type:     "ip",
+			Slug:     slug,
+		}, nil
+	}))
 
+	// waiter is last before otel tracing
+	middlewares = append(middlewares, waiter.Middleware)
 	// otel tracing
-	traceHandler := func(next jrpc.Handler) jrpc.Handler {
+	middlewares = append(middlewares, func(next jrpc.Handler) jrpc.Handler {
 		tracer := otel.Tracer("jrpc")
 
 		fn := jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
@@ -118,11 +147,16 @@ func New(p Params) (r Result, err error) {
 				span.RecordError(err)
 			}
 		})
-
 		return fn
-	}
+	})
 
-	handler = traceHandler(handler)
+	rootJrpcHandler := p.Clusters.Middleware(nil)
+	handler := jrpc.Handler(rootJrpcHandler)
+	for _, m := range middlewares {
+		if m != nil {
+			handler = m(handler)
+		}
+	}
 
 	r.Provider = handler
 

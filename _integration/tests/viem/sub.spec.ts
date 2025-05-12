@@ -1,8 +1,8 @@
 import { createPublicClient, http, webSocket} from "viem"
-import { mainnet, polygon } from "@gfxlabs/oku-chains"
+import { mainnet, base } from "@gfxlabs/oku-chains"
 
 
-const chains = [mainnet, polygon]
+const chains = [mainnet, base]
 
 const venn_url = process.env.VENN_URL || `localhost:8545`
 
@@ -25,7 +25,7 @@ describe("ws simple", ()=>{
   })
   test("subscription for 5 received more than one block", async ()=>{
     const receivedHeaders = []
-    const subClient = await provider[polygon.id].transport.subscribe({
+    const subClient = await provider[base.id].transport.subscribe({
       params:["newHeads"],
       onData: (x)=>{
         receivedHeaders.push(x.result)

@@ -10,9 +10,23 @@ func init() {
 		&Requests,
 		&Remotes,
 		&Stalker,
+		&Gateway,
 	} {
 		gotoprom.MustInit(v, "venn", nil)
 	}
+}
+
+type GatewayRequestLabel struct {
+	Endpoint string `label:"endpoint"`
+	Target   string `label:"target"`
+	Method   string `label:"method"`
+	Success  bool   `label:"success"`
+}
+
+var Gateway struct {
+	RequestLatency      func(label GatewayRequestLabel) prometheus.Histogram `name:"gateway_request_latency_ms" help:"The total latency of each request in milliseconds" buckets:"1,10,50,100,250,500,1000,2000,5000,10000,50000"`
+	SubscriptionCreated func(label GatewayRequestLabel) prometheus.Counter   `name:"gateway_subscription_created" help:"The total number of subscriptions opened"`
+	SubscriptionClosed  func(label GatewayRequestLabel) prometheus.Counter   `name:"gateway_subscription_closed" help:"The total number of subscriptions closed"`
 }
 
 type RequestLabel struct {
