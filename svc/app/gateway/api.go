@@ -101,8 +101,11 @@ func New(p Params) (r Result, err error) {
 	maxRequestBodySize := 5 * 1024 * 1024
 
 	mux := jmux.NewMux()
+
+	// subscription middleware
 	mux.Use(p.Subscription.Middleware())
 
+	// whitelist methods
 	mux.Use( // make sure request body is not larger than 5mb
 		func(next jrpc.Handler) jrpc.Handler {
 			return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
@@ -255,7 +258,6 @@ func New(p Params) (r Result, err error) {
 		return r, err
 	}
 
-	// set the not found (fallback) handler
 	mux.Handle("*", baseHandler)
 
 	// bind the jrpc handler to a http+websocket codec to host on the http server
