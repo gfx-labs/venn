@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gobwas/glob"
 	"go4.org/netipx"
 
 	"gfx.cafe/util/go/gotel"
@@ -119,13 +118,9 @@ func New(p Params) (r Result, err error) {
 		})
 
 	// whitelist methods
-	whitelist := []glob.Glob{}
+	whitelist := map[string]struct{}{}
 	for _, v := range p.Endpoint.Methods {
-		g, err := glob.Compile(v)
-		if err != nil {
-			return r, err
-		}
-		whitelist = append(whitelist, g)
+		whitelist[v] = struct{}{}
 	}
 	mux.Use(func(next jrpc.Handler) jrpc.Handler {
 		return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
@@ -137,13 +132,11 @@ func New(p Params) (r Result, err error) {
 				next.ServeRPC(w, r)
 				return
 			}
-			for _, g := range whitelist {
-				if g.Match(r.Method) {
-					next.ServeRPC(w, r)
-					return
-				}
+			if _, ok := whitelist[r.Method]; !ok {
+				w.Send(nil, fmt.Errorf("method not allowed"))
+				return
 			}
-			w.Send(nil, fmt.Errorf("method not allowed"))
+			next.ServeRPC(w, r)
 		})
 	})
 
