@@ -234,15 +234,18 @@ func New(p Params) (r Result, err error) {
 				label.Success = icept.Error() == nil
 				prom.Gateway.RequestLatency(label).Observe(dur.Seconds() * 1000)
 				lvl := slog.LevelInfo
-				if err != nil {
-					lvl = slog.LevelError
-				}
-				p.Logger.Log(context.Background(), lvl, "request",
+				extra := []any{
 					"method", r.Method,
 					"params", string(r.Params),
 					"limit_key", id.Key(),
 					"duration", dur,
-					"err", icept.Error(),
+				}
+				if err != nil {
+					lvl = slog.LevelError
+					extra = append(extra, "err", icept.Error())
+				}
+				p.Logger.Log(context.Background(), lvl, "request",
+					extra...,
 				)
 			}()
 			fn.ServeRPC(icept, r)
