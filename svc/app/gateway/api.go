@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gobwas/glob"
 	"go4.org/netipx"
 
 	"gfx.cafe/util/go/gotel"
@@ -105,7 +106,6 @@ func New(p Params) (r Result, err error) {
 	// subscription middleware
 	mux.Use(p.Subscription.Middleware())
 
-	// whitelist methods
 	mux.Use( // make sure request body is not larger than 5mb
 		func(next jrpc.Handler) jrpc.Handler {
 			return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
@@ -117,6 +117,35 @@ func New(p Params) (r Result, err error) {
 				next.ServeRPC(w, req)
 			})
 		})
+
+	// whitelist methods
+	whitelist := []glob.Glob{}
+	for _, v := range p.Endpoint.Methods {
+		g, err := glob.Compile(v)
+		if err != nil {
+			return r, err
+		}
+		whitelist = append(whitelist, g)
+	}
+	mux.Use(func(next jrpc.Handler) jrpc.Handler {
+		return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
+			if len(r.Method) > 100 {
+				w.Send(nil, fmt.Errorf("method not allowed"))
+				return
+			}
+			if len(whitelist) == 0 {
+				next.ServeRPC(w, r)
+				return
+			}
+			for _, g := range whitelist {
+				if g.Match(r.Method) {
+					next.ServeRPC(w, r)
+					return
+				}
+			}
+			w.Send(nil, fmt.Errorf("method not allowed"))
+		})
+	})
 
 	// tracing
 	mux.Use(func(next jrpc.Handler) jrpc.Handler {
