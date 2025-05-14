@@ -49,6 +49,8 @@ type EndpointSpec struct {
 	Paths  map[string]string `json:"paths"`
 	Limits EndpointLimits    `json:"limits,omitempty"`
 
+	Methods []string `json:"methods,omitempty"`
+
 	// url to the venn to proxy to
 	VennUrl SafeUrl `json:"venn_url"`
 }

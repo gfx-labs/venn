@@ -24,6 +24,7 @@ import (
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/contrib/codecs"
 	"gfx.cafe/open/jrpc/contrib/extension/subscription"
+	"gfx.cafe/open/jrpc/contrib/jmux"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/fx"
@@ -64,12 +65,9 @@ type Result struct {
 	Route func(r chi.Router) `group:"route"`
 }
 
-func New(p Params) (r Result, err error) {
-	waiter := util.NewWaiter()
+func createBaseHandler(p Params) (jrpc.Handler, error) {
 	endpointProxies := make(map[string]jrpc.Handler)
-	maxRequestBodySize := 5 * 1024 * 1024
 	hybridProxy := callcenter.NewHybridProxy(p.Logger, string(p.Endpoint.VennUrl))
-	var localMiddleware []func(jrpc.Handler) jrpc.Handler = []func(jrpc.Handler) jrpc.Handler{}
 	for _, to := range p.Endpoint.Paths {
 		_, ok := endpointProxies[to]
 		if ok {
@@ -77,17 +75,10 @@ func New(p Params) (r Result, err error) {
 		}
 		endpointPathHandler, err := hybridProxy.EndpointHandler(to)
 		if err != nil {
-			return r, err
+			return nil, err
 		}
-		handler := jrpc.Handler(endpointPathHandler)
-		for _, m := range localMiddleware {
-			if m != nil {
-				handler = m(handler)
-			}
-		}
-		endpointProxies[to] = handler
+		endpointProxies[to] = jrpc.Handler(endpointPathHandler)
 	}
-
 	baseHandler := jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 		target, err := subctx.GetEndpointPath(r.Context())
 		if err != nil {
@@ -102,11 +93,137 @@ func New(p Params) (r Result, err error) {
 		targetProxy.ServeRPC(w, r)
 		return
 	})
+	return baseHandler, nil
 
-	// global middleware that apply before endpoint routing goes here
-	var globalMiddlewares []func(jrpc.Handler) jrpc.Handler = []func(jrpc.Handler) jrpc.Handler{}
+}
 
-	globalMiddlewares = append(globalMiddlewares, func(next jrpc.Handler) jrpc.Handler {
+func New(p Params) (r Result, err error) {
+	maxRequestBodySize := 5 * 1024 * 1024
+
+	mux := jmux.NewMux()
+	mux.Use(p.Subscription.Middleware())
+
+	mux.Use( // make sure request body is not larger than 5mb
+		func(next jrpc.Handler) jrpc.Handler {
+			return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
+				// TODO: make this configurable
+				if len(req.Params) > maxRequestBodySize {
+					w.Send(nil, fmt.Errorf("request body too large"))
+					return
+				}
+				next.ServeRPC(w, req)
+			})
+		})
+
+	// tracing
+	mux.Use(func(next jrpc.Handler) jrpc.Handler {
+		tracer := otel.Tracer("jrpc")
+		fn := jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
+			path, _ := subctx.GetEndpointPath(req.Context())
+			ctx, span := tracer.Start(req.Context(), req.Method,
+				trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(
+					attribute.String("method", req.Method),
+					attribute.String("params", string(req.Params)),
+					attribute.String("path", path)))
+			defer span.End()
+			ew := &jrpcjrpcutil.ErrorRecorder{
+				ResponseWriter: w,
+			}
+			// execute next http handler
+			next.ServeRPC(w, req.WithContext(ctx))
+			if err := ew.Error(); err != nil {
+				span.SetStatus(codes.Error, fmt.Sprintf("error: %s", err))
+				span.RecordError(err)
+			}
+		})
+		return fn
+	})
+
+	mux.Use(ratelimit.WithIdentifier(func(r *jrpc.Request) (*ratelimit.Identifier, error) {
+		endpoint, err := subctx.GetEndpointSpec(r.Context())
+		if err != nil {
+			return nil, err
+		}
+		slug, _, err := net.SplitHostPort(r.Peer.RemoteAddr)
+		if err != nil {
+			slug = r.Peer.RemoteAddr
+		}
+		return &ratelimit.Identifier{
+			Endpoint: endpoint.Name,
+			Type:     "ip",
+			Slug:     slug,
+		}, nil
+	}))
+
+	for _, v := range p.Endpoint.Limits.Abuse {
+		rc, err := rueidislimiter.NewRateLimiter(rueidislimiter.RateLimiterOption{
+			ClientBuilder: func(option rueidis.ClientOption) (rueidis.Client, error) {
+				return p.Redi.R(), nil
+			},
+			KeyPrefix: fmt.Sprintf("%s:gateway:abuse:%s:%s", p.Redi.Namespace(), p.Endpoint.Name, v.Id),
+			Limit:     v.Total,
+			Window:    v.Window.Duration,
+		})
+		if err != nil {
+			return r, err
+		}
+
+		mux.Use(ratelimit.RuedisRatelimiter(rc))
+	}
+
+	mux.Use(func(fn jrpc.Handler) jrpc.Handler {
+		return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
+			endpoint, err := subctx.GetEndpointSpec(r.Context())
+			if err != nil {
+				w.Send(nil, err)
+				return
+			}
+			target, err := subctx.GetEndpointPath(r.Context())
+			if err != nil {
+				w.Send(nil, err)
+				return
+			}
+			id, err := ratelimit.IdentifierFromContext(r.Context())
+			if err != nil {
+				w.Send(nil, err)
+				return
+			}
+			label := prom.GatewayRequestLabel{
+				Endpoint: endpoint.Name,
+				Target:   target,
+				Method:   r.Method,
+			}
+			if strings.HasSuffix(r.Method, "_subscribe") {
+				label.Success = true
+				prom.Gateway.SubscriptionCreated(label).Inc()
+				defer prom.Gateway.SubscriptionClosed(label).Inc()
+				fn.ServeRPC(w, r)
+				return
+			}
+			start := time.Now()
+			icept := &jrpcjrpcutil.ErrorRecorder{
+				ResponseWriter: w,
+			}
+			defer func() {
+				dur := time.Since(start)
+				label.Success = icept.Error() == nil
+				prom.Gateway.RequestLatency(label).Observe(dur.Seconds() * 1000)
+				lvl := slog.LevelInfo
+				if err != nil {
+					lvl = slog.LevelError
+				}
+				p.Logger.Log(context.Background(), lvl, "request",
+					"method", r.Method,
+					"params", string(r.Params),
+					"limit_key", id.Key(),
+					"duration", dur,
+					"err", icept.Error(),
+				)
+			}()
+			fn.ServeRPC(icept, r)
+		})
+	})
+	mux.Use(func(next jrpc.Handler) jrpc.Handler {
 		return jsonrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 			id, err := ratelimit.IdentifierFromContext(r.Context())
 			if err != nil {
@@ -124,6 +241,7 @@ func New(p Params) (r Result, err error) {
 			}
 			next.ServeRPC(w, r)
 			entry.Duration = time.Since(entry.Timestamp)
+
 			err = p.Telemetry.Publish(r.Context(), entry)
 			if err != nil {
 				w.Send(nil, err)
@@ -132,129 +250,16 @@ func New(p Params) (r Result, err error) {
 		})
 	})
 
-	for _, v := range p.Endpoint.Limits.Abuse {
-		rc, err := rueidislimiter.NewRateLimiter(rueidislimiter.RateLimiterOption{
-			ClientBuilder: func(option rueidis.ClientOption) (rueidis.Client, error) {
-				return p.Redi.R(), nil
-			},
-			KeyPrefix: fmt.Sprintf("%s:gateway:abuse:%s:%s", p.Redi.Namespace(), p.Endpoint.Name, v.Id),
-			Limit:     v.Total,
-			Window:    v.Window.Duration,
-		})
-		if err != nil {
-			return r, err
-		}
-		globalMiddlewares = append(globalMiddlewares, ratelimit.RuedisRatelimiter(rc))
+	baseHandler, err := createBaseHandler(p)
+	if err != nil {
+		return r, err
 	}
 
-	globalMiddlewares = append(globalMiddlewares,
-		func(fn jrpc.Handler) jrpc.Handler {
-			return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
-				endpoint, err := subctx.GetEndpointSpec(r.Context())
-				if err != nil {
-					w.Send(nil, err)
-					return
-				}
-				target, err := subctx.GetEndpointPath(r.Context())
-				if err != nil {
-					w.Send(nil, err)
-					return
-				}
-				label := prom.GatewayRequestLabel{
-					Endpoint: endpoint.Name,
-					Target:   target,
-					Method:   r.Method,
-				}
-				if strings.HasSuffix(r.Method, "_subscribe") {
-					label.Success = true
-					prom.Gateway.SubscriptionCreated(label).Inc()
-					defer prom.Gateway.SubscriptionClosed(label).Inc()
-					fn.ServeRPC(w, r)
-					return
-				}
-				start := time.Now()
-				icept := &jrpcjrpcutil.ErrorRecorder{
-					ResponseWriter: w,
-				}
-				defer func() {
-					dur := time.Since(start)
-					label.Success = icept.Error() == nil
-					prom.Gateway.RequestLatency(label).Observe(dur.Seconds() * 1000)
-				}()
-				fn.ServeRPC(icept, r)
-			})
-		},
-		ratelimit.WithIdentifier(func(r *jrpc.Request) (*ratelimit.Identifier, error) {
-			endpoint, err := subctx.GetEndpointSpec(r.Context())
-			if err != nil {
-				return nil, err
-			}
-			slug, _, err := net.SplitHostPort(r.Peer.RemoteAddr)
-			if err != nil {
-				slug = r.Peer.RemoteAddr
-			}
-			return &ratelimit.Identifier{
-				Endpoint: endpoint.Name,
-				Type:     "ip",
-				Slug:     slug,
-			}, nil
-		}),
-		p.Subscription.Middleware(),
-		waiter.Middleware,
-		func(next jrpc.Handler) jrpc.Handler {
-			tracer := otel.Tracer("jrpc")
-			fn := jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
-				path, _ := subctx.GetEndpointPath(req.Context())
-				ctx, span := tracer.Start(req.Context(), req.Method,
-					trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(
-						attribute.String("method", req.Method),
-						attribute.String("params", string(req.Params)),
-						attribute.String("path", path)))
-				defer span.End()
-				ew := &jrpcjrpcutil.ErrorRecorder{
-					ResponseWriter: w,
-				}
-				// execute next http handler
-				next.ServeRPC(w, req.WithContext(ctx))
-				if err := ew.Error(); err != nil {
-					span.SetStatus(codes.Error, fmt.Sprintf("error: %s", err))
-					span.RecordError(err)
-				}
-			})
-			return fn
-		},
+	// set the not found (fallback) handler
+	mux.Handle("*", baseHandler)
 
-		// make sure request body is not larger than 5mb
-		func(next jrpc.Handler) jrpc.Handler {
-			return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
-				// TODO: make this configurable
-				if len(req.Params) > maxRequestBodySize {
-					w.Send(nil, fmt.Errorf("request body too large"))
-					return
-				}
-				next.ServeRPC(w, req)
-			})
-		},
-	)
-
-	jrpcHandler := jrpc.Handler(baseHandler)
-	for _, m := range globalMiddlewares {
-		if m != nil {
-			jrpcHandler = m(jrpcHandler)
-		}
-	}
-
-	// add the waiter hook to the shutdown handler.
-	p.Lc.Append(fx.Hook{
-		OnStop: func(ctx context.Context) error {
-			if err := waiter.Wait(ctx); err != nil {
-				return err
-			}
-			return nil
-		},
-	})
 	// bind the jrpc handler to a http+websocket codec to host on the http server
-	serverHandler := codecs.HttpWebsocketHandler(jrpcHandler, nil)
+	serverHandler := codecs.HttpWebsocketHandler(mux, nil)
 
 	b := &netipx.IPSetBuilder{}
 	if p.Security != nil {
@@ -326,6 +331,7 @@ func New(p Params) (r Result, err error) {
 			})))
 		for from, to := range p.Endpoint.Paths {
 			r.Mount("/"+from, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// add the endpoint spec and target here!
 				r = r.WithContext(subctx.WithEndpointPath(r.Context(), to))
 				r = r.WithContext(subctx.WithEndpointSpec(r.Context(), p.Endpoint))
 				serverHandler.ServeHTTP(w, r)
