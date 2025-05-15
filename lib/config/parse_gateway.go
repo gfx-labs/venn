@@ -17,7 +17,7 @@ type GatewayConfigResult struct {
 	fx.Out
 
 	HTTP      *HTTP
-	Redis     Redis
+	Redis     *Redis
 	Metrics   *Metrics `optional:"true"`
 	Nats      *Nats
 	Telemetry *Telemetry
@@ -71,7 +71,7 @@ func GatewayFileParser(file string) func() (GatewayConfigResult, error) {
 
 		res := GatewayConfigResult{
 			HTTP:      &cfg.HTTP,
-			Redis:     cfg.Redis,
+			Redis:     &cfg.Redis,
 			Log:       logger,
 			Metrics:   cfg.Metrics,
 			Nats:      cfg.Nats,
