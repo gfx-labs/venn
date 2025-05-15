@@ -15,14 +15,14 @@ import (
 
 type Redis struct {
 	c       *redis.Client
-	cfg     config.Redis
+	cfg     *config.Redis
 	rueidis rueidis.Client
 }
 
 type RedisParams struct {
 	fx.In
 
-	Config config.Redis
+	Config *config.Redis
 	Log    *slog.Logger
 	Lc     fx.Lifecycle
 }
