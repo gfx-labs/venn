@@ -286,7 +286,7 @@ func New(p Params) (r Result, err error) {
 	mux.Handle("*", baseHandler)
 
 	// bind the jrpc handler to a http+websocket codec to host on the http server
-	serverHandler := codecs.HttpWebsocketHandler(mux, nil)
+	serverHandler := codecs.HttpWebsocketHandler(mux, []string{"*"})
 
 	b := &netipx.IPSetBuilder{}
 	if p.Security != nil {
