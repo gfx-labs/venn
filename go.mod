@@ -6,7 +6,7 @@ toolchain go1.23.2
 
 require (
 	gfx.cafe/open/gotoprom v0.0.2
-	gfx.cafe/open/jrpc v0.6.1
+	gfx.cafe/open/jrpc v0.7.0
 	gfx.cafe/util/go v1.12.1-0.20240717000937-c42e930797c2
 	github.com/alecthomas/kong v1.8.1
 	github.com/alicebob/miniredis/v2 v2.32.1
