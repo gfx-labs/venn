@@ -15,7 +15,6 @@ require (
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-faster/jx v1.1.0
 	github.com/go-redsync/redsync/v4 v4.12.1
-	github.com/gobwas/glob v0.2.3
 	github.com/gocql/gocql v1.6.0
 	github.com/google/cel-go v0.20.1
 	github.com/google/uuid v1.6.0

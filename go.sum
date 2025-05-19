@@ -1,7 +1,7 @@
 gfx.cafe/open/gotoprom v0.0.2 h1:LNypdpXFYSMoTewDSokZsOiZKcbewEVbOpkFUoQwnkA=
 gfx.cafe/open/gotoprom v0.0.2/go.mod h1:osabAhqSCG+hqtBeUTjFMbzqB2kZFK0SpRYRqmS5Of4=
-gfx.cafe/open/jrpc v0.6.1 h1:x8Scya2gQRAP2YKSPFDrdDr39pBn5V3PWHyv4Q67VeQ=
-gfx.cafe/open/jrpc v0.6.1/go.mod h1:ESU0T7eQiJHxVrwfnONOqBieF5gn6LcoG0emzBQlScc=
+gfx.cafe/open/jrpc v0.7.0 h1:QK7nbnCYTZp9snTCFjLDo0qkHOCq+0v0RYi/FfD4UxM=
+gfx.cafe/open/jrpc v0.7.0/go.mod h1:ESU0T7eQiJHxVrwfnONOqBieF5gn6LcoG0emzBQlScc=
 gfx.cafe/open/websocket v1.10.0 h1:ahVbietTKg9QhulBe4xcPw0F4mv/VOMEZPYFGhmGwaw=
 gfx.cafe/open/websocket v1.10.0/go.mod h1:GsEYIYJuzELmJjV0HBt8JOye0rvsBCCPEZt477uFb/E=
 gfx.cafe/util/go v1.12.1-0.20240717000937-c42e930797c2 h1:Y7A7JihRpJLnzQwWbJ+5SgQqs3DnGtR+rbpckDdBPYo=
@@ -80,8 +80,6 @@ github.com/go-redis/redis/v8 v8.11.4/go.mod h1:2Z2wHZXdQpCDXEGzqMockDpNyYvi2l4Px
 github.com/go-redsync/redsync/v4 v4.12.1 h1:hCtdZ45DJxMxNdPiby5GlQwOKQmcka2587Y466qPqlA=
 github.com/go-redsync/redsync/v4 v4.12.1/go.mod h1:sn72ojgeEhxUuRjrliK0NRrB0Zl6kOZ3BDvNN3P2jAY=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
-github.com/gobwas/glob v0.2.3 h1:A4xDbljILXROh+kObIiy5kIaPYD8e96x1tgBhUI5J+Y=
-github.com/gobwas/glob v0.2.3/go.mod h1:d3Ez4x06l9bZtSvzIay5+Yzi0fmZzPgnTbPcKjJAkT8=
 github.com/gocql/gocql v1.6.0 h1:IdFdOTbnpbd0pDhl4REKQDM+Q0SzKXQ1Yh+YZZ8T/qU=
 github.com/gocql/gocql v1.6.0/go.mod h1:3gM2c4D3AnkISwBxGnMMsS8Oy4y2lhbPRsH4xnJrHG8=
 github.com/gogo/protobuf v1.1.1/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
