@@ -92,7 +92,7 @@ func (T *Subcenter) Middleware(h jrpc.Handler) jrpc.Handler {
 				_ = w.Send(nil, err)
 				return
 			}
-			if chain.ParsedStalk {
+			if !chain.ParsedStalk {
 				_ = w.Send(nil, jsonrpc.NewInvalidRequestError("chain does not support subscriptions"))
 				return
 			}
