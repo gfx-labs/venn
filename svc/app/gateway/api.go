@@ -175,7 +175,7 @@ func New(p Params) (r Result, err error) {
 		}
 		return &ratelimit.Identifier{
 			Endpoint: endpoint.Name,
-			Type:     "ip",
+			Type:     "ip:" + r.Peer.Transport,
 			Slug:     slug,
 		}, nil
 	}))
