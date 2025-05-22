@@ -7,14 +7,12 @@ import (
 	"math"
 	"math/big"
 	"strconv"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 type BlockNumber int64
-type Timestamp uint64
 
 const (
 	LatestExecutedBlockNumber = BlockNumber(-5)
@@ -195,65 +193,4 @@ func (bnh *BlockNumberOrHash) Hash() (common.Hash, bool) {
 		return *bnh.BlockHash, true
 	}
 	return common.Hash{}, false
-}
-
-func BlockNumberOrHashWithNumber(blockNr BlockNumber) BlockNumberOrHash {
-	return BlockNumberOrHash{
-		BlockNumber:      &blockNr,
-		BlockHash:        nil,
-		RequireCanonical: false,
-	}
-}
-
-func BlockNumberOrHashWithHash(hash common.Hash, canonical bool) BlockNumberOrHash {
-	return BlockNumberOrHash{
-		BlockNumber:      nil,
-		BlockHash:        &hash,
-		RequireCanonical: canonical,
-	}
-}
-
-// DecimalOrHex unmarshals a non-negative decimal or hex parameter into a uint64.
-type DecimalOrHex uint64
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (dh *DecimalOrHex) UnmarshalJSON(data []byte) error {
-	input := strings.TrimSpace(string(data))
-	if len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"' {
-		input = input[1 : len(input)-1]
-	}
-
-	value, err := strconv.ParseUint(input, 10, 64)
-	if err != nil {
-		a := new(big.Int)
-		a.SetString(input, 0)
-		value = a.Uint64()
-	}
-	if err != nil {
-		return err
-	}
-	*dh = DecimalOrHex(value)
-	return nil
-}
-
-func (ts Timestamp) TurnIntoUint64() uint64 {
-	return uint64(ts)
-}
-
-func (ts *Timestamp) UnmarshalJSON(data []byte) error {
-	input := strings.TrimSpace(string(data))
-	if len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"' {
-		input = input[1 : len(input)-1]
-	}
-	// parse string to uint64
-	timestamp, err := strconv.ParseUint(input, 10, 64)
-	if err != nil {
-		// try hex number
-		a := new(big.Int)
-		a.SetString(input, 0)
-		timestamp = a.Uint64()
-	}
-	*ts = Timestamp(timestamp)
-	return nil
-
 }
