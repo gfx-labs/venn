@@ -5,10 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gfx.cafe/gfx/venn/lib/subctx"
 	"log/slog"
 	"strconv"
 	"time"
+
+	"gfx.cafe/gfx/venn/lib/subctx"
 
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
@@ -317,8 +318,8 @@ func (T *Stalker) Middleware(next jrpc.Handler) jrpc.Handler {
 				_ = w.Send(nil, err)
 				return
 			}
-			if len(request) != 2 {
-				_ = w.Send(nil, jsonrpc.NewInvalidParamsError("expected 2 parameters"))
+			if len(request) < 2 || len(request) > 3 {
+				_ = w.Send(nil, jsonrpc.NewInvalidParamsError("expected 2-3 parameters"))
 				return
 			}
 
@@ -335,7 +336,11 @@ func (T *Stalker) Middleware(next jrpc.Handler) jrpc.Handler {
 			}
 
 			if changed {
-				r.Params, err = json.Marshal([]any{request[0], blockNumber})
+				newParams := []any{request[0], blockNumber}
+				if len(request) == 3 {
+					newParams = append(newParams, request[2])
+				}
+				r.Params, err = json.Marshal(newParams)
 				if err != nil {
 					_ = w.Send(nil, err)
 					return

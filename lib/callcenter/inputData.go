@@ -19,8 +19,8 @@ func (T *InputData) Middleware(next jrpc.Handler) jrpc.Handler {
 				_ = w.Send(nil, jsonrpc.NewInvalidRequestError("params must be an array"))
 				return
 			}
-			if len(params) != 2 {
-				_ = w.Send(nil, jsonrpc.NewInvalidRequestError("expected 2 params"))
+			if len(params) < 2 || len(params) > 3 {
+				_ = w.Send(nil, jsonrpc.NewInvalidRequestError("expected 2-3 parameters"))
 				return
 			}
 
@@ -44,8 +44,13 @@ func (T *InputData) Middleware(next jrpc.Handler) jrpc.Handler {
 				call["input"] = data
 			}
 
+			newParams := []any{call, params[1]}
+			if len(params) == 3 {
+				newParams = append(newParams, params[2])
+			}
+
 			var err error
-			r.Params, err = json.Marshal([]any{call, params[1]})
+			r.Params, err = json.Marshal(newParams)
 			if err != nil {
 				_ = w.Send(nil, jsonrpc.NewInternalError(err.Error()))
 				return
