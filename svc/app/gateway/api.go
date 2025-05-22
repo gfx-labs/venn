@@ -236,6 +236,7 @@ func New(p Params) (r Result, err error) {
 				lvl := slog.LevelInfo
 				extra := []any{
 					"method", r.Method,
+					"transport", r.Peer.Transport,
 					"params", string(r.Params),
 					"limit_key", id.Key(),
 					"duration", dur,
