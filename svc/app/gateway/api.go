@@ -169,6 +169,9 @@ func New(p Params) (r Result, err error) {
 		if err != nil {
 			return nil, err
 		}
+		if r.Peer.HTTP != nil {
+			r.Peer.RemoteAddr = r.Peer.HTTP.RemoteAddr
+		}
 		slug, _, err := net.SplitHostPort(r.Peer.RemoteAddr)
 		if err != nil {
 			slug = r.Peer.RemoteAddr
