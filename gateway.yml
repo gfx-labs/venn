@@ -1,6 +1,6 @@
 bind: localhost:8888
 logging:
-  level: debug
+  log_level: debug
 redis:
   namespace: venn-gateway-dev
   uri: redis://localhost:6379
