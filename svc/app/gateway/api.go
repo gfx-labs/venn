@@ -312,11 +312,14 @@ func New(p Params) (r Result, err error) {
 					if err == nil && ipset.Contains(parsedRemote) {
 						for _, h := range p.Security.TrustedIpHeaders {
 							val := r.Header.Get(h)
+							p.Logger.Debug("checking ip header", "header", h, "value", val)
 							if val != "" && net.ParseIP(val) != nil {
 								r.RemoteAddr = val
 								break
 							}
 						}
+					} else {
+						p.Logger.Debug("got request from untrusted remote", "remote", r.RemoteAddr)
 					}
 					if len(p.Security.AllowedOrigins) > 0 {
 						o := r.Header.Get("Origin")
