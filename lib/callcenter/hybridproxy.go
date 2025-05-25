@@ -65,10 +65,6 @@ func (p *HybridProxy) EndpointHandler(to string) (jrpc.Handler, error) {
 
 func (p *HybridProxy) handleEthSubscription(pool *socketPool, w jrpc.ResponseWriter, r *jrpc.Request) {
 	first := true
-	type currStruct struct {
-		conn *websocket.Client
-		sub  string
-	}
 	notifier, ok := subscription.NotifierFromContext(r.Context())
 	if !ok {
 		_ = w.Send(nil, subscription.ErrNotificationsUnsupported)

@@ -15,7 +15,6 @@ import (
 
 type blockLookBackRemote struct {
 	cfg       *config.Remote
-	next      callcenter.Remote
 	headStore headstore.Store
 }
 

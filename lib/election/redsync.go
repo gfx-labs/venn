@@ -28,7 +28,6 @@ type RedilockStrategy struct {
 	namespace string
 	redis     redis.UniversalClient
 
-	members map[string]Member
 	id      uuid.UUID
 
 	isLeader   atomic.Bool
@@ -286,14 +285,6 @@ func (m *RedilockStrategy) broadcast_health(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-func (m *RedilockStrategy) isOutlaw(ctx context.Context, id uuid.UUID) (bool, error) {
-	isOutlaw, err := m.redis.SIsMember(ctx, fmt.Sprintf("venn:%s:election:outlaws", m.namespace), id.String()).Result()
-	if err != nil {
-		return false, err
-	}
-	return isOutlaw, err
 }
 
 func (m *RedilockStrategy) overthrow(ctx context.Context) error {

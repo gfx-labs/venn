@@ -21,7 +21,6 @@ type NodeConfigResult struct {
 	Redis     *Redis
 	Ratelimit *AbuseLimit
 	Election  *Election
-	Scylla    *Scylla
 	Chains    map[string]*Chain
 	Remotes   []*Remote
 	Metrics   *Metrics `optional:"true"`
@@ -79,7 +78,6 @@ func NodeFileParser(file string) func() (NodeConfigResult, error) {
 			Ratelimit: cfg.Ratelimit,
 			Chains:    make(map[string]*Chain, len(cfg.Chains)),
 			Remotes:   remotes,
-			Scylla:    cfg.Scylla,
 			Log:       logger,
 			Metrics:   cfg.Metrics,
 			Election:  &cfg.Election,

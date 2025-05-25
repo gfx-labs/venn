@@ -44,11 +44,6 @@ func New(p Params) (r Result, err error) {
 	if p.Rediblock != nil {
 		compoundStore.AddStore("rediblock", p.Rediblock)
 	}
-	/*
-		if p.Cassblock != nil {
-			compoundStore.AddStore("cassblock", p.Cassblock)
-		}
-	*/
 	compoundStore.AddStore("blockgetter", p.Chainblock)
 	r.Blockstore = blockstore.NewSingleFlight(compoundStore)
 

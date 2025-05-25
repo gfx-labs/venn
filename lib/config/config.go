@@ -14,7 +14,6 @@ type NodeConfig struct {
 	Redis     Redis       `json:"redis,omitempty"`
 	Ratelimit *AbuseLimit `json:"ratelimit,omitempty"`
 	Chains    []*Chain    `json:"chains,omitempty"`
-	Scylla    *Scylla     `json:"scylla,omitempty"`
 	Filters   []*Filter   `json:"filters,omitempty"`
 }
 
@@ -98,14 +97,6 @@ type Redis struct {
 
 type Nats struct {
 	URI SafeUrl `json:"uri"`
-}
-
-type Scylla struct {
-	URI      SafeUrl `json:"uri"`
-	Keyspace string  `json:"keyspace"`
-	CertFile string  `json:"certfile,omitempty"`
-
-	Hosts []string `json:"hosts,omitempty"`
 }
 
 type Chain struct {
