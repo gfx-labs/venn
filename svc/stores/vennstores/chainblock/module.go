@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
+
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
@@ -11,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/go-faster/jx"
 	"go.uber.org/fx"
-	"log/slog"
 
 	"gfx.cafe/gfx/venn/lib/ethtypes"
 	"gfx.cafe/gfx/venn/lib/jrpcutil"

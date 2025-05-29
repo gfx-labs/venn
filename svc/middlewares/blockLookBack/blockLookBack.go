@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"gfx.cafe/gfx/venn/lib/callcenter"
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/ethtypes"
@@ -27,7 +28,6 @@ func New(cfg *config.Remote, headStore headstore.Store) callcenter.Middleware {
 
 func (m *blockLookBackRemote) Middleware(next jrpc.Handler) jrpc.Handler {
 	return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
-
 		var err error
 		switch r.Method {
 		case "eth_getBlockByNumber", "eth_getTransactionByBlockNumberAndIndex":
@@ -38,7 +38,7 @@ func (m *blockLookBackRemote) Middleware(next jrpc.Handler) jrpc.Handler {
 			"eth_getUncleCountByBlockNumber", "debug_getRawHeader",
 			"debug_getRawBlock":
 			err = m.check1Param(r)
-		case "eth_getLogs":
+		case "eth_getLogs", "sei_getLogs":
 			err = m.checkGetLogs(r)
 		}
 
