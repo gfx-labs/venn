@@ -51,7 +51,6 @@ jobs:
       if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
       run: |
         TAG=${GITHUB_REF#refs/tags/}
-        VERSION=${TAG#v}
-
-        # Build and push with version tag
-        ko build --bare ./cmd/venn --tags=$VERSION,latest
+        
+        # Build and push with version tag (keeping v prefix)
+        ko build --bare ./cmd/venn --tags=$TAG,latest
