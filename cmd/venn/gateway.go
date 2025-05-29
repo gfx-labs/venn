@@ -57,6 +57,7 @@ func (o *StartGateway) Run() error {
 			gotel.NewTraceProvider,
 		),
 		fx.Invoke(
+			func(*prom.Prometheus){},
 			fxplus.StatLogger,
 			func(*http.Server) {},
 			func(m *config.Metrics, l *slog.Logger) {
