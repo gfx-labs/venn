@@ -39,7 +39,7 @@ func New(p Params) (r Result, err error) {
 	compoundStore := blockstore.NewCompoundStore(p.Log)
 	compoundStore.AddStore(
 		"lru",
-		blockstore.NewLruStore(128),
+		blockstore.NewLruStore(2048),
 	)
 	if p.Rediblock != nil {
 		compoundStore.AddStore("rediblock", p.Rediblock)

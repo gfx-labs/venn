@@ -268,7 +268,6 @@ func (T *Stalker) Middleware(next jrpc.Handler) jrpc.Handler {
 					return
 				}
 			}
-
 			next.ServeRPC(w, r)
 			return
 		case "eth_getBlockReceipts":

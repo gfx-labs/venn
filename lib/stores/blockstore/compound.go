@@ -3,8 +3,9 @@ package blockstore
 import (
 	"context"
 	"errors"
-	"gfx.cafe/gfx/venn/lib/config"
 	"log/slog"
+
+	"gfx.cafe/gfx/venn/lib/config"
 
 	"go.uber.org/multierr"
 )
@@ -83,7 +84,7 @@ func (c *CompoundStore) Get(ctx context.Context, chain *config.Chain, typ EntryT
 		err := v.store.Put(ctx, chain, typ, entries...)
 		if err != nil {
 			if !(errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
-				c.log.Warn("cache miss", "chain", chain.Name, "cache_type", v.name, "query", query, "err", err)
+				c.log.Warn("cache store fail", "chain", chain.Name, "cache_type", v.name, "query", query, "err", err)
 			}
 			merr = multierr.Append(merr, err)
 			continue
