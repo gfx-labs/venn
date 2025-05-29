@@ -17,61 +17,41 @@ jobs:
     permissions:
       contents: write
       packages: write
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.23'
-    
+
     - name: Install ko
       uses: ko-build/setup-ko@v0.6
-    
+
     - name: Log in to Harbor Registry
       env:
         REGISTRY_USERNAME: ${{ secrets.HARBOR_USER }}
         REGISTRY_PASSWORD: ${{ secrets.HARBOR_SECRET }}
       run: |
         echo "$REGISTRY_PASSWORD" | ko login oci.gfx.cafe -u "$REGISTRY_USERNAME" --password-stdin
-    
+
     - name: Build and push container (branch)
       if: github.ref_type == 'branch'
       run: |
         BRANCH=${GITHUB_REF#refs/heads/}
         BRANCH_SAFE=$(echo $BRANCH | sed 's/[^a-zA-Z0-9-]/-/g')
         SHORT_SHA=${GITHUB_SHA::7}
-        
+
         # Build and push with branch name and commit hash as separate tags
         ko build --bare ./cmd/venn --tags=${BRANCH_SAFE},${SHORT_SHA}
-    
+
     - name: Build and push container (version tag)
       if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
       run: |
         TAG=${GITHUB_REF#refs/tags/}
         VERSION=${TAG#v}
-        
+
         # Build and push with version tag
         ko build --bare ./cmd/venn --tags=$VERSION,latest
-    
-    - name: Create Release
-      if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
-      uses: softprops/action-gh-release@v1
-      with:
-        name: Release ${{ github.ref_name }}
-        body: |
-          ## Docker Image
-          
-          Pull the image:
-          ```bash
-          docker pull oci.gfx.cafe/git/gfx/venn:${GITHUB_REF_NAME#v}
-          ```
-          
-          Or use the latest tag:
-          ```bash
-          docker pull oci.gfx.cafe/git/gfx/venn:latest
-          ```
-        draft: false
-        prerelease: false
