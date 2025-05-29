@@ -27,10 +27,10 @@ import (
 )
 
 type Stalker struct {
-	ctx      context.Context
-	log      *slog.Logger
-	store    headstore.Store
-	election *election.Election
+	ctx       context.Context
+	log       *slog.Logger
+	headstore headstore.Store
+	election  *election.Election
 
 	dt map[string]*delayTracker
 }
@@ -56,11 +56,11 @@ type Result struct {
 
 func New(p Params) (r Result, err error) {
 	s := &Stalker{
-		ctx:      p.Ctx,
-		log:      p.Log,
-		store:    p.Head,
-		election: p.Election,
-		dt:       make(map[string]*delayTracker),
+		ctx:       p.Ctx,
+		log:       p.Log,
+		headstore: p.Head,
+		election:  p.Election,
+		dt:        make(map[string]*delayTracker),
 	}
 	r.Stalker = s
 	remote := p.Cacher.Middleware(p.Clusters.Middleware(nil))
@@ -143,7 +143,7 @@ func (T *Stalker) tick(ctx context.Context, chain *config.Chain, remote jrpc.Han
 	objTime := time.Unix(int64(head.Timestamp), 0)
 	nextTime := objTime.Add(blockTime)
 
-	prev, err := T.store.Put(ctx, chain, head.BlockNumber)
+	prev, err := T.headstore.Put(ctx, chain, head.BlockNumber)
 	if err != nil {
 		// store error, so lets just wait the block time
 		return blockTime, err
@@ -202,34 +202,24 @@ func (T *Stalker) tick(ctx context.Context, chain *config.Chain, remote jrpc.Han
 	)
 	return nextWait, nil
 	// otherwise, use the time until the expected time, or 500ms, whichever is greater
-
 }
 
-func (T *Stalker) toConcreteBlockNumber(ctx context.Context, chain *config.Chain, blockNumbers ...*ethtypes.BlockNumber) (changed bool, passthrough bool, err error) {
-	var head hexutil.Uint64
-	var hasHead bool
-	for _, blockNumber := range blockNumbers {
-		switch *blockNumber {
-		case ethtypes.LatestBlockNumber:
-			if !hasHead {
-				head, err = T.store.Get(ctx, chain)
-				if err != nil {
-					return
-				}
-				hasHead = true
-			}
-
-			*blockNumber = ethtypes.BlockNumber(head)
-			changed = true
-		case ethtypes.LatestExecutedBlockNumber, ethtypes.PendingBlockNumber, ethtypes.SafeBlockNumber, ethtypes.FinalizedBlockNumber:
-			//		err = jsonrpc.NewInvalidParamsError(`expected "latest" or number`) // TODO(garet)
-			return changed, true, nil
-		default:
-			continue
+func (T *Stalker) toNumericBlockNumber(ctx context.Context, chain *config.Chain, blockNumber *ethtypes.BlockNumber) (value ethtypes.BlockNumber, passthrough bool, err error) {
+	switch *blockNumber {
+	case ethtypes.LatestBlockNumber:
+		head, err := T.headstore.Get(ctx, chain)
+		if err != nil {
+			return 0, true, err
 		}
+		if head == 0 {
+			return 0, true, nil
+		}
+		return ethtypes.BlockNumber(head), false, nil
+	case ethtypes.LatestExecutedBlockNumber, ethtypes.PendingBlockNumber, ethtypes.SafeBlockNumber, ethtypes.FinalizedBlockNumber:
+		return 0, true, nil
+	default:
+		return 0, true, nil
 	}
-
-	return
 }
 
 func (T *Stalker) Middleware(next jrpc.Handler) jrpc.Handler {
@@ -247,7 +237,7 @@ func (T *Stalker) Middleware(next jrpc.Handler) jrpc.Handler {
 			_ = w.Send(strconv.Itoa(chain.Id), nil)
 			return
 		case "eth_blockNumber":
-			_ = w.Send(T.store.Get(r.Context(), chain))
+			_ = w.Send(T.headstore.Get(r.Context(), chain))
 			return
 		case "eth_getBlockByNumber":
 			// replace latest for current head
@@ -266,15 +256,13 @@ func (T *Stalker) Middleware(next jrpc.Handler) jrpc.Handler {
 				_ = w.Send(nil, err)
 				return
 			}
-
-			changed, _, err := T.toConcreteBlockNumber(r.Context(), chain, &blockNumber)
+			number, passthrough, err := T.toNumericBlockNumber(r.Context(), chain, &blockNumber)
 			if err != nil {
 				_ = w.Send(nil, err)
 				return
 			}
-
-			if changed {
-				r.Params, err = json.Marshal([]any{blockNumber, request[1]})
+			if !passthrough {
+				r.Params, err = json.Marshal([]any{number, request[1]})
 				if err != nil {
 					_ = w.Send(nil, err)
 					return
@@ -295,14 +283,13 @@ func (T *Stalker) Middleware(next jrpc.Handler) jrpc.Handler {
 				return
 			}
 
-			changed, _, err := T.toConcreteBlockNumber(r.Context(), chain, &request[0])
+			number, passthrough, err := T.toNumericBlockNumber(r.Context(), chain, &request[0])
 			if err != nil {
 				_ = w.Send(nil, err)
 				return
 			}
-
-			if changed {
-				r.Params, err = json.Marshal(request)
+			if !passthrough {
+				r.Params, err = json.Marshal([]any{number})
 				if err != nil {
 					_ = w.Send(nil, err)
 					return
@@ -329,14 +316,14 @@ func (T *Stalker) Middleware(next jrpc.Handler) jrpc.Handler {
 				return
 			}
 
-			changed, _, err := T.toConcreteBlockNumber(r.Context(), chain, &blockNumber)
+			number, passthrough, err := T.toNumericBlockNumber(r.Context(), chain, &blockNumber)
 			if err != nil {
 				_ = w.Send(nil, err)
 				return
 			}
 
-			if changed {
-				newParams := []any{request[0], blockNumber}
+			if !passthrough {
+				newParams := []any{request[0], number}
 				if len(request) == 3 {
 					newParams = append(newParams, request[2])
 				}
@@ -373,16 +360,21 @@ func (T *Stalker) Middleware(next jrpc.Handler) jrpc.Handler {
 				if request[0].ToBlock != nil {
 					toBlock = *request[0].ToBlock
 				}
-				changed, _, err := T.toConcreteBlockNumber(r.Context(), chain, &fromBlock, &toBlock)
+
+				numberFromBlock, passthrough1, err := T.toNumericBlockNumber(r.Context(), chain, &fromBlock)
+				if err != nil {
+					_ = w.Send(nil, err)
+					return
+				}
+				numberToBlock, passthrough2, err := T.toNumericBlockNumber(r.Context(), chain, &toBlock)
 				if err != nil {
 					_ = w.Send(nil, err)
 					return
 				}
 
-				if changed {
-					request[0].FromBlock = &fromBlock
-					request[0].ToBlock = &toBlock
-
+				if !passthrough1 && !passthrough2 {
+					request[0].FromBlock = &numberFromBlock
+					request[0].ToBlock = &numberToBlock
 					r.Params, err = json.Marshal(request)
 					if err != nil {
 						_ = w.Send(nil, err)
