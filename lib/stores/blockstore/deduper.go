@@ -3,6 +3,7 @@ package blockstore
 import (
 	"context"
 	"fmt"
+
 	"gfx.cafe/gfx/venn/lib/config"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +29,7 @@ func (T *SingleFlight) Get(ctx context.Context, chain *config.Chain, typ EntryTy
 	case QueryHash:
 		groupQuery = fmt.Sprintf("%s.%d.%s", chain.Name, typ, common.Hash(q).Hex())
 	}
-	result := T.group.DoChan(groupQuery, func() (interface{}, error) {
+	result := T.group.DoChan(groupQuery, func() (any, error) {
 		return T.underlying.Get(ctx, chain, typ, query)
 	})
 	select {

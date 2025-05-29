@@ -105,6 +105,10 @@ var addEntriesScript = redis.NewScript(`
 			exp = 1
 		end
 
+		if exp > 3600 then
+		  exp = 3600
+		end
+
 		redis.call('SETEX', byHashValue, exp, value)
 		redis.call('SETEX', byHashNumber, exp, number)
 		redis.call('SETEX', byNumberValue, exp, value)
@@ -115,7 +119,7 @@ var addEntriesScript = redis.NewScript(`
 `)
 
 func (s *Rediblock) namespace(chain *config.Chain) string {
-	return "venn:{" + s.redi.Namespace() + ":" + chain.Name + "}"
+	return "venn" + ":" + s.redi.Namespace() + ":{" + chain.Name + "}"
 }
 
 func (s *Rediblock) Get(ctx context.Context, chain *config.Chain, typ blockstore.EntryType, query blockstore.Query) ([]*blockstore.Entry, error) {
