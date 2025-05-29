@@ -14,6 +14,7 @@ import (
 	"gfx.cafe/util/go/fxplus"
 	"gfx.cafe/util/go/gotel"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/fx"
 )
 
@@ -73,7 +74,17 @@ func (o *StartGateway) Run() error {
 				}
 				go func() {
 					l.Info("starting metrics server", "bind", bind)
-					if err := http.ListenAndServe(bind, nil); err != nil {
+					
+					// Create a dedicated mux for the metrics server
+					mux := http.NewServeMux()
+					mux.Handle("/metrics", promhttp.Handler())
+					
+					// Proxy pprof endpoints from the default mux
+					mux.HandleFunc("/debug/", func(w http.ResponseWriter, r *http.Request) {
+						http.DefaultServeMux.ServeHTTP(w, r)
+					})
+					
+					if err := http.ListenAndServe(bind, mux); err != nil {
 						l.Error("failed to start metrics", "err", err)
 					}
 				}()
