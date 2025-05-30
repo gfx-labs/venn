@@ -116,7 +116,7 @@ func (T *Stalker) stalk(ctx context.Context, chain *config.Chain, remote jrpc.Ha
 }
 
 func (T *Stalker) tick(ctx context.Context, chain *config.Chain, remote jrpc.Handler) (time.Duration, error) {
-	blockTime := time.Duration(chain.BlockTimeSeconds * float64(time.Second))
+	blockTime := max(time.Duration(chain.BlockTimeSeconds*float64(time.Second)), 500*time.Millisecond)
 	// ask for the latest block
 	var block json.RawMessage
 	if err := jrpcutil.Do(ctx, remote, &block, "eth_getBlockByNumber", []any{"latest", false}); err != nil {
