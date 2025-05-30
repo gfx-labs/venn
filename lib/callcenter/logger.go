@@ -20,6 +20,6 @@ func NewLogger(logger *slog.Logger) *Logger {
 func (T *Logger) Middleware(next jrpc.Handler) jrpc.Handler {
 	return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
 		next.ServeRPC(w, r)
-		T.logger.Debug("sending remote request", "method", r.Method, "params", r.Params)
+		T.logger.Debug("sending remote request", "method", r.Method, "params", string(r.Params))
 	})
 }
