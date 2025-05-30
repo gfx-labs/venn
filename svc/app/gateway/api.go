@@ -238,6 +238,8 @@ func New(p Params) (r Result, err error) {
 				prom.Gateway.RequestLatency(label).Observe(dur.Seconds() * 1000)
 				lvl := slog.LevelInfo
 				extra := []any{
+					"endpoint", endpoint.Name,
+					"target", target,
 					"method", r.Method,
 					"transport", r.Peer.Transport,
 					"params", string(r.Params),
