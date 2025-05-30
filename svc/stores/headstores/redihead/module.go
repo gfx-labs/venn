@@ -59,7 +59,7 @@ func New(params Params) (r Result, err error) {
 
 	stream := gtrs.NewStream[Head](
 		params.Redi.C(),
-		fmt.Sprintf("venn:%s:head:stream", params.Redi.Namespace()),
+		fmt.Sprintf("%s:head:stream", params.Redi.Namespace()),
 		nil,
 	)
 	r.Result = &Redihead{
@@ -145,7 +145,7 @@ func (T *Redihead) run(ctx context.Context) {
 			ctx,
 			T.redi.C(),
 			gtrs.StreamIDs{
-				fmt.Sprintf("venn:%s:head:stream", T.redi.Namespace()): start,
+				fmt.Sprintf("%s:head:stream", T.redi.Namespace()): start,
 			},
 		)
 		defer consumer.Close()

@@ -28,7 +28,7 @@ type RedilockStrategy struct {
 	namespace string
 	redis     redis.UniversalClient
 
-	id      uuid.UUID
+	id uuid.UUID
 
 	isLeader   atomic.Bool
 	leaderLock *redsync.Mutex
@@ -89,7 +89,8 @@ func NewRedilockStrategy(
 		redis: client,
 	}
 	rs := redsync.New(goredis.NewPool(client))
-	m.leaderLock = rs.NewMutex(fmt.Sprintf("venn:%s:leader:redsync", namespacePrefix))
+	m.leaderLock = rs.NewMutex(fmt.Sprintf("%s:leader:redsync", namespacePrefix))
+	m.namespace = namespacePrefix
 	m.id = uuid.New()
 	return m
 }
