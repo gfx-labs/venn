@@ -125,6 +125,13 @@ func New(params Params) (r Result, err error) {
 						max(time.Minute, time.Duration(float64(time.Second)*2*chain.BlockTimeSeconds)),
 					)
 
+					mw.Doctor = callcenter.NewDoctor(
+						params.Log.With("remote", cfg.Name, "chain", chain.Name),
+						chain.Id,
+						cfg.HealthCheckIntervalMin.Duration,
+						cfg.HealthCheckIntervalMax.Duration,
+					)
+
 					if cfg.RateLimit != nil {
 						mw.RateLimiter = callcenter.NewRatelimiter(
 							rate.Limit(cfg.RateLimit.EventsPerSecond),
@@ -160,17 +167,7 @@ func New(params Params) (r Result, err error) {
 					remote = mw.Logger.Middleware(remote)
 					remote = mw.Backer.Middleware(remote)
 					remote = mw.Validator.Middleware(remote)
-
-					// Doctor needs special handling as it wraps the handler differently
-					mw.Doctor = callcenter.NewDoctor(
-						remote,
-						params.Log.With("remote", cfg.Name, "chain", chain.Name),
-						chain.Id,
-						cfg.HealthCheckIntervalMin.Duration,
-						cfg.HealthCheckIntervalMax.Duration,
-					)
-					remote = mw.Doctor
-
+					remote = mw.Doctor.Middleware(remote)
 					remote = mw.RateLimiter.Middleware(remote)
 
 					// Filterer needs to be created after we have the methods map
