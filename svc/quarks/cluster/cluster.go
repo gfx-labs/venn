@@ -25,20 +25,20 @@ import (
 
 // RemoteMiddlewares holds all middleware instances for a specific remote
 type RemoteMiddlewares struct {
-	InputData      *callcenter.InputData
-	Collector      *callcenter.Collector
-	Logger         *callcenter.Logger
-	Backer         *callcenter.Backer
-	Validator      *callcenter.Validator
-	Doctor         *callcenter.Doctor
-	RateLimiter    *callcenter.Ratelimiter
-	Filterer       *callcenter.Filterer
-	BlockLookBack  callcenter.Middleware // blockLookBack returns a Middleware interface
+	InputData     *callcenter.InputData
+	Collector     *callcenter.Collector
+	Logger        *callcenter.Logger
+	Backer        *callcenter.Backer
+	Validator     *callcenter.Validator
+	Doctor        *callcenter.Doctor
+	RateLimiter   *callcenter.Ratelimiter
+	Filterer      *callcenter.Filterer
+	BlockLookBack callcenter.Middleware // blockLookBack returns a Middleware interface
 }
 
 type Clusters struct {
 	Remotes map[string]callcenter.Remote
-	
+
 	// Middleware instances stored by chain name, then by remote name
 	middlewares map[string]map[string]*RemoteMiddlewares
 }
@@ -150,6 +150,7 @@ func New(params Params) (r Result, err error) {
 							methods[method] = ok
 						}
 					}
+					mw.Filterer = callcenter.NewFilterer(methods)
 
 					if cfg.MaxBlockLookBack > 0 {
 						mw.BlockLookBack = blockLookBack.New(cfg, params.HeadStore)
@@ -168,13 +169,7 @@ func New(params Params) (r Result, err error) {
 					remote = mw.Validator.Middleware(remote)
 					remote = mw.Doctor.Middleware(remote)
 					remote = mw.RateLimiter.Middleware(remote)
-
-					// Filterer needs to be created after we have the methods map
-					mw.Filterer = callcenter.NewFilterer(
-						remote,
-						methods,
-					)
-					remote = mw.Filterer
+					remote = mw.Filterer.Middleware(remote)
 
 					if mw.BlockLookBack != nil {
 						remote = mw.BlockLookBack.Middleware(remote)
