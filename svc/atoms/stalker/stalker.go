@@ -143,6 +143,17 @@ func (T *Stalker) tick(ctx context.Context, chain *config.Chain, remote jrpc.Han
 	objTime := time.Unix(int64(head.Timestamp), 0)
 	nextTime := objTime.Add(blockTime)
 
+	prevHead, err := T.headstore.Get(ctx, chain)
+	if err != nil {
+		return 0, err
+	}
+	if prevHead != 0 {
+		// sanity check, head more than 1000 blocks old? it's a bad head.
+		if head.BlockNumber >= prevHead+1000 {
+			return blockTime, fmt.Errorf("head more than 100 blocks old")
+		}
+	}
+
 	prev, err := T.headstore.Put(ctx, chain, head.BlockNumber)
 	if err != nil {
 		// store error, so lets just wait the block time
