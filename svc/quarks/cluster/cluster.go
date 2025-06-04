@@ -39,8 +39,8 @@ type RemoteMiddlewares struct {
 type Clusters struct {
 	Remotes map[string]callcenter.Remote
 	
-	// Middleware instances stored by remote key (chain.Name + ":" + remote.Name)
-	middlewares map[string]*RemoteMiddlewares
+	// Middleware instances stored by chain name, then by remote name
+	middlewares map[string]map[string]*RemoteMiddlewares
 }
 
 type Params struct {
@@ -62,22 +62,21 @@ type Result struct {
 func New(params Params) (r Result, err error) {
 	r.Clusters = &Clusters{
 		Remotes:     make(map[string]callcenter.Remote),
-		middlewares: make(map[string]*RemoteMiddlewares),
+		middlewares: make(map[string]map[string]*RemoteMiddlewares),
 	}
 	for _, chain := range params.Chains {
 		cluster := callcenter.NewCluster()
 		r.Clusters.Remotes[chain.Name] = cluster
+		// Initialize the nested map for this chain
+		r.Clusters.middlewares[chain.Name] = make(map[string]*RemoteMiddlewares)
 		for _, cfg := range chain.Remotes {
 			cfg := cfg
 			toclose := make([]io.Closer, 0)
 			params.Lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
-					// Create a unique key for this remote
-					remoteKey := chain.Name + ":" + cfg.Name
-					
 					// Initialize middleware storage
 					mw := &RemoteMiddlewares{}
-					r.Clusters.middlewares[remoteKey] = mw
+					r.Clusters.middlewares[chain.Name][cfg.Name] = mw
 
 					// Create base proxier
 					proxier := callcenter.NewProxier(func(ctx context.Context) (jrpc.Conn, error) {
