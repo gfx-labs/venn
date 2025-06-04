@@ -23,8 +23,24 @@ import (
 	"gfx.cafe/gfx/venn/svc/services/prom"
 )
 
+// RemoteMiddlewares holds all middleware instances for a specific remote
+type RemoteMiddlewares struct {
+	InputData      *callcenter.InputData
+	Collector      *callcenter.Collector
+	Logger         *callcenter.Logger
+	Backer         *callcenter.Backer
+	Validator      *callcenter.Validator
+	Doctor         *callcenter.Doctor
+	RateLimiter    *callcenter.Ratelimiter
+	Filterer       *callcenter.Filterer
+	BlockLookBack  callcenter.Middleware // blockLookBack returns a Middleware interface
+}
+
 type Clusters struct {
 	Remotes map[string]callcenter.Remote
+	
+	// Middleware instances stored by remote key (chain.Name + ":" + remote.Name)
+	middlewares map[string]*RemoteMiddlewares
 }
 
 type Params struct {
@@ -45,7 +61,8 @@ type Result struct {
 
 func New(params Params) (r Result, err error) {
 	r.Clusters = &Clusters{
-		Remotes: make(map[string]callcenter.Remote),
+		Remotes:     make(map[string]callcenter.Remote),
+		middlewares: make(map[string]*RemoteMiddlewares),
 	}
 	for _, chain := range params.Chains {
 		cluster := callcenter.NewCluster()
@@ -55,6 +72,14 @@ func New(params Params) (r Result, err error) {
 			toclose := make([]io.Closer, 0)
 			params.Lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
+					// Create a unique key for this remote
+					remoteKey := chain.Name + ":" + cfg.Name
+					
+					// Initialize middleware storage
+					mw := &RemoteMiddlewares{}
+					r.Clusters.middlewares[remoteKey] = mw
+
+					// Create base proxier
 					proxier := callcenter.NewProxier(func(ctx context.Context) (jrpc.Conn, error) {
 						c, err := jrpc.DialContext(ctx, string(cfg.Url))
 						if err != nil {
@@ -73,62 +98,44 @@ func New(params Params) (r Result, err error) {
 						return c, nil
 					})
 					toclose = append(toclose, proxier)
-					var remote jrpc.Handler
-					remote = proxier
 
-					/*remote = callcenter.NewPooler(
-						func(ctx context.Context) (callcenter.Remote, error) {
-							return callcenter.NewProxier(ctx, func(ctx context.Context) (jrpc.Conn, error) {
-								return jrpc.DialContext(ctx, string(cfg.Url))
-							})
-						},
-						16,
-					)*/
-
+					// Create all middleware instances first
 					if cfg.SendDataAndInput {
-						remote = (&callcenter.InputData{}).Middleware(remote)
+						mw.InputData = &callcenter.InputData{}
 					}
 
-					remote = callcenter.NewCollector(
+					mw.Collector = callcenter.NewCollector(
 						chain.Name,
 						cfg.Name,
 						params.Prometheus,
-					).Middleware(remote)
+					)
 
-					remote = callcenter.NewLogger(
+					mw.Logger = callcenter.NewLogger(
 						params.Log.With("remote", cfg.Name, "chain", chain.Name),
-					).Middleware(remote)
+					)
 
-					remote = callcenter.NewBacker(
+					mw.Backer = callcenter.NewBacker(
 						params.Log.With("remote", cfg.Name, "chain", chain.Name),
 						cfg.RateLimitBackoff.Duration,
 						cfg.ErrorBackoffMin.Duration,
 						cfg.ErrorBackoffMax.Duration,
-					).Middleware(remote)
+					)
 
-					remote = callcenter.NewValidator(
+					mw.Validator = callcenter.NewValidator(
 						max(time.Minute, time.Duration(float64(time.Second)*2*chain.BlockTimeSeconds)),
-					).Middleware(remote)
-
-					remote = callcenter.NewDoctor(
-						remote,
-						params.Log.With("remote", cfg.Name, "chain", chain.Name),
-						chain.Id,
-						cfg.HealthCheckIntervalMin.Duration,
-						cfg.HealthCheckIntervalMax.Duration,
 					)
 
 					if cfg.RateLimit != nil {
-						remote = callcenter.NewRatelimiter(
+						mw.RateLimiter = callcenter.NewRatelimiter(
 							rate.Limit(cfg.RateLimit.EventsPerSecond),
 							cfg.RateLimit.Burst,
-						).Middleware(remote)
+						)
 					} else {
 						// default values of 50/100
-						remote = callcenter.NewRatelimiter(
+						mw.RateLimiter = callcenter.NewRatelimiter(
 							50,
 							100,
-						).Middleware(remote)
+						)
 					}
 
 					methods := make(map[string]bool)
@@ -138,14 +145,43 @@ func New(params Params) (r Result, err error) {
 						}
 					}
 
-					remote = callcenter.NewFilterer(
+					if cfg.MaxBlockLookBack > 0 {
+						mw.BlockLookBack = blockLookBack.New(cfg, params.HeadStore)
+					}
+
+					// Now build the middleware chain
+					var remote jrpc.Handler = proxier
+
+					if mw.InputData != nil {
+						remote = mw.InputData.Middleware(remote)
+					}
+
+					remote = mw.Collector.Middleware(remote)
+					remote = mw.Logger.Middleware(remote)
+					remote = mw.Backer.Middleware(remote)
+					remote = mw.Validator.Middleware(remote)
+
+					// Doctor needs special handling as it wraps the handler differently
+					mw.Doctor = callcenter.NewDoctor(
+						remote,
+						params.Log.With("remote", cfg.Name, "chain", chain.Name),
+						chain.Id,
+						cfg.HealthCheckIntervalMin.Duration,
+						cfg.HealthCheckIntervalMax.Duration,
+					)
+					remote = mw.Doctor
+
+					remote = mw.RateLimiter.Middleware(remote)
+
+					// Filterer needs to be created after we have the methods map
+					mw.Filterer = callcenter.NewFilterer(
 						remote,
 						methods,
 					)
+					remote = mw.Filterer
 
-					if cfg.MaxBlockLookBack > 0 {
-						// mount the "proxy" / middleware in front of the remote
-						remote = blockLookBack.New(cfg, params.HeadStore).Middleware(remote)
+					if mw.BlockLookBack != nil {
+						remote = mw.BlockLookBack.Middleware(remote)
 					}
 
 					cluster.Add(cfg.Priority, remote)
