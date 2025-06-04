@@ -1,6 +1,7 @@
 package promcollect
 
 import (
+	"context"
 	"log/slog"
 	"strings"
 	"time"
@@ -71,6 +72,22 @@ func (T *Collector) Middleware(fn jrpc.Handler) jrpc.Handler {
 			}
 
 			prom.Requests.Latency(label).Observe(dur.Seconds() * 1000)
+			lvl := slog.LevelInfo
+			extra := []any{
+				"chain", chain.Name,
+				"method", r.Method,
+				"transport", r.Peer.Transport,
+				"remote_addr", r.Peer.RemoteAddr,
+				"params", string(r.Params),
+				"duration", dur,
+			}
+			if icept.Error != nil {
+				lvl = slog.LevelError
+				extra = append(extra, "err", icept.Error)
+			}
+			T.logger.Log(context.Background(), lvl, "request",
+				extra...,
+			)
 		}()
 
 		fn.ServeRPC(&icept, r)

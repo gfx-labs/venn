@@ -246,7 +246,7 @@ func New(p Params) (r Result, err error) {
 					"limit_key", id.Key(),
 					"duration", dur,
 				}
-				if err != nil {
+				if icept.Error() != nil {
 					lvl = slog.LevelError
 					extra = append(extra, "err", icept.Error())
 				}
