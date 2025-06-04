@@ -5,3 +5,4 @@ venn.yaml
 *.venn.hcl
 *.venn.yml
 ca.pem
+.claude
