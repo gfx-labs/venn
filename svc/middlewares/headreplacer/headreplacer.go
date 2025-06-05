@@ -3,6 +3,7 @@ package headreplacer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"gfx.cafe/gfx/venn/lib/config"
@@ -82,7 +83,7 @@ func (h *HeadReplacer) ReplaceBlockNumberInRequest(ctx context.Context, r *jrpc.
 
 	// Check if we have enough parameters
 	if blockParamIndex >= len(params) {
-		return nil, jsonrpc.NewInvalidParamsError("missing block number parameter")
+		return nil, jsonrpc.NewInvalidParamsError(fmt.Sprintf("need at least %d parameters", blockParamIndex+1))
 	}
 
 	// Parse the block number parameter
@@ -139,7 +140,6 @@ func (h *HeadReplacer) Middleware(next jrpc.Handler) jrpc.Handler {
 			_ = w.Send(h.headstore.Get(r.Context(), chain))
 			return
 		case "eth_getBlockByNumber":
-			// Block number is the first parameter (index 0)
 			newReq, err := h.ReplaceBlockNumberInRequest(r.Context(), r, 0)
 			if err != nil {
 				_ = w.Send(nil, err)
@@ -148,7 +148,6 @@ func (h *HeadReplacer) Middleware(next jrpc.Handler) jrpc.Handler {
 			next.ServeRPC(w, newReq)
 			return
 		case "eth_getBlockReceipts":
-			// Block number is the first parameter (index 0)
 			newReq, err := h.ReplaceBlockNumberInRequest(r.Context(), r, 0)
 			if err != nil {
 				_ = w.Send(nil, err)
@@ -157,7 +156,6 @@ func (h *HeadReplacer) Middleware(next jrpc.Handler) jrpc.Handler {
 			next.ServeRPC(w, newReq)
 			return
 		case "eth_call":
-			// Block number is the second parameter (index 1)
 			newReq, err := h.ReplaceBlockNumberInRequest(r.Context(), r, 1)
 			if err != nil {
 				_ = w.Send(nil, err)
