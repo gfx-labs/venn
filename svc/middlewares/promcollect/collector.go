@@ -72,7 +72,7 @@ func (T *Collector) Middleware(fn jrpc.Handler) jrpc.Handler {
 			}
 
 			prom.Requests.Latency(label).Observe(dur.Seconds() * 1000)
-			lvl := slog.LevelInfo
+			lvl := slog.LevelDebug
 			extra := []any{
 				"chain", chain.Name,
 				"method", r.Method,
