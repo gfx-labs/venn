@@ -158,6 +158,9 @@ func New(p Params) (r Result, err error) {
 		}
 	}
 
+	// Add validation middleware last so it executes first
+	handler = util.MethodValidationMiddleware()(handler)
+
 	r.Provider = handler
 
 	// add the waiter hook to the shutdown handler.

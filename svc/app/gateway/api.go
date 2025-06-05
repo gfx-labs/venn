@@ -122,12 +122,12 @@ func New(p Params) (r Result, err error) {
 	for _, v := range p.Endpoint.Methods {
 		whitelist[v] = struct{}{}
 	}
+	// Method validation middleware
+	mux.Use(util.MethodValidationMiddleware())
+	
+	// Whitelist validation
 	mux.Use(func(next jrpc.Handler) jrpc.Handler {
 		return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
-			if len(r.Method) > 100 {
-				w.Send(nil, fmt.Errorf("method not allowed"))
-				return
-			}
 			if len(whitelist) == 0 {
 				next.ServeRPC(w, r)
 				return
