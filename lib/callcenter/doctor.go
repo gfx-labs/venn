@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
@@ -41,33 +42,31 @@ type Doctor struct {
 	mu         sync.Mutex
 }
 
-func NewDoctor(remote Remote, log *slog.Logger, chainId int, minInterval, maxInterval time.Duration) *Doctor {
-	ctx, cn := context.WithCancel(context.Background())
-
-	doctor := &Doctor{
-		ctx: ctx,
-		cn:  cn,
-
+func NewDoctor(log *slog.Logger, chainId int, minInterval, maxInterval time.Duration) *Doctor {
+	return &Doctor{
 		chainId:     chainId,
 		minInterval: minInterval,
 		maxInterval: maxInterval,
-		remote:      remote,
-
-		log: log,
-
-		timer: time.NewTimer(minInterval),
-
-		interval: minInterval,
+		log:         log,
+		interval:    minInterval,
 	}
-	doctor.firstCheck.Add(1)
+}
+
+func (T *Doctor) Middleware(next jrpc.Handler) jrpc.Handler {
+	// Initialize the doctor when middleware is applied
+	ctx, cn := context.WithCancel(context.Background())
+	T.ctx = ctx
+	T.cn = cn
+	T.remote = next
+	T.timer = time.NewTimer(T.minInterval)
+	T.firstCheck.Add(1)
 
 	go func() {
-		doctor.check()
-
-		doctor.loop()
+		T.check()
+		T.loop()
 	}()
 
-	return doctor
+	return T
 }
 
 func (T *Doctor) loop() {
@@ -151,3 +150,4 @@ func (T *Doctor) Close() error {
 }
 
 var _ Remote = (*Doctor)(nil)
+var _ Middleware = (*Doctor)(nil)
