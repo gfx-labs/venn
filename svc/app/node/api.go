@@ -35,6 +35,7 @@ import (
 	"gfx.cafe/gfx/venn/svc/atoms/subcenter"
 	"gfx.cafe/gfx/venn/svc/quarks/cluster"
 
+	"gfx.cafe/gfx/venn/svc/middlewares/headreplacer"
 	"gfx.cafe/gfx/venn/svc/middlewares/promcollect"
 )
 
@@ -53,6 +54,9 @@ type Params struct {
 
 	// head following for even faster access to the latest block.
 	Stalker *stalker.Stalker
+
+	// head replacer middleware for replacing latest block tags
+	HeadReplacer *headreplacer.HeadReplacer
 
 	// result caching for certain methods
 	Cacher *cacher.Cacher
@@ -77,7 +81,7 @@ func New(p Params) (r Result, err error) {
 	waiter := util.NewWaiter()
 	middlewares := []jrpc.Middleware{
 		p.Cacher.Middleware,
-		p.Stalker.Middleware,
+		p.HeadReplacer.Middleware,
 		(&forger.Forger{}).Middleware,
 		p.Subcenter.Middleware,
 	}

@@ -37,7 +37,7 @@ type RemoteMiddlewares struct {
 }
 
 type Clusters struct {
-	Remotes map[string]callcenter.Remote
+	Remotes map[string]*callcenter.Cluster
 
 	// Middleware instances stored by chain name, then by remote name
 	middlewares map[string]map[string]*RemoteMiddlewares
@@ -61,7 +61,7 @@ type Result struct {
 
 func New(params Params) (r Result, err error) {
 	r.Clusters = &Clusters{
-		Remotes:     make(map[string]callcenter.Remote),
+		Remotes:     make(map[string]*callcenter.Cluster),
 		middlewares: make(map[string]map[string]*RemoteMiddlewares),
 	}
 	for _, chain := range params.Chains {
@@ -98,10 +98,7 @@ func New(params Params) (r Result, err error) {
 					})
 					toclose = append(toclose, proxier)
 
-					// Create all middleware instances first
-					if cfg.SendDataAndInput {
-						mw.InputData = &callcenter.InputData{}
-					}
+					mw.InputData = &callcenter.InputData{}
 
 					mw.Collector = callcenter.NewCollector(
 						chain.Name,

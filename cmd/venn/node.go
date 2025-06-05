@@ -11,6 +11,7 @@ import (
 	"gfx.cafe/gfx/venn/svc/atoms/stalker"
 	"gfx.cafe/gfx/venn/svc/atoms/subcenter"
 	"gfx.cafe/gfx/venn/svc/atoms/vennstore"
+	"gfx.cafe/gfx/venn/svc/middlewares/headreplacer"
 	"gfx.cafe/gfx/venn/svc/middlewares/promcollect"
 	"gfx.cafe/gfx/venn/svc/quarks/cluster"
 	"gfx.cafe/gfx/venn/svc/services/prom"
@@ -70,6 +71,7 @@ func (o *StartNode) Run() error {
 		fx.Provide(
 			NewSubscriptionEngine,
 			// blockland.New,
+			headreplacer.New,
 			promcollect.New,
 		),
 		// http handler

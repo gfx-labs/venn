@@ -3,10 +3,11 @@ package callcenter
 import (
 	"cmp"
 	"errors"
-	"gfx.cafe/open/jrpc"
 	"slices"
 	"sync"
 	"sync/atomic"
+
+	"gfx.cafe/open/jrpc"
 
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 
