@@ -75,7 +75,7 @@ func New(p Params) (r Result, err error) {
 						}
 						cluster, ok := p.Clusters.Remotes[chain.Name]
 						if !ok {
-							s.log.Error("cluster not found for chain", "chain", chain.Name)
+							s.log.Error("cluster not found for chain. not stalking", "chain", chain.Name)
 							continue
 						}
 						go s.stalk(ctx, chain, cluster)
@@ -213,5 +213,3 @@ func (T *Stalker) tick(ctx context.Context, chain *config.Chain, cluster *callce
 	return nextWait, nil
 	// otherwise, use the time until the expected time, or 500ms, whichever is greater
 }
-
-
