@@ -101,7 +101,7 @@ func (T *Chainblock) getBlockHeaders(ctx context.Context, remote jrpc.Handler, q
 
 		return []*blockstore.Entry{&out}, nil
 	case blockstore.QueryRange:
-		if q.End-q.Start < 0 {
+		if q.Start > q.End {
 			return nil, nil
 		}
 
@@ -143,7 +143,7 @@ func (T *Chainblock) getReceipts(ctx context.Context, remote jrpc.Handler, query
 	case blockstore.QueryHash:
 		return nil, errors.New("cannot get block receipts by hash")
 	case blockstore.QueryRange:
-		if q.End-q.Start < 0 {
+		if q.Start > q.End {
 			return nil, nil
 		}
 
@@ -184,16 +184,7 @@ func (T *Chainblock) getLogs(ctx context.Context, remote jrpc.Handler, query blo
 		var out blockstore.Entry
 		hash := common.Hash(q)
 
-		logsMethod := "eth_getLogs"
-
-		chain, err := subctx.GetChain(ctx)
-		if err == nil {
-			if chain.Name == "sei" {
-				logsMethod = "sei_getLogs"
-			}
-		}
-
-		if err := jrpcutil.Do(ctx, remote, &out.Value, logsMethod, []any{
+		if err := jrpcutil.Do(ctx, remote, &out.Value, "eth_getLogs", []any{
 			ethtypes.FilterQuery{
 				BlockHash: &hash,
 			},
@@ -219,24 +210,15 @@ func (T *Chainblock) getLogs(ctx context.Context, remote jrpc.Handler, query blo
 
 		return []*blockstore.Entry{&out}, nil
 	case blockstore.QueryRange:
-		if q.End-q.Start < 0 {
+		if q.Start > q.End {
 			return nil, nil
 		}
 
 		fromBlock := ethtypes.BlockNumber(q.Start)
 		toBlock := ethtypes.BlockNumber(q.End)
 
-		logsMethod := "eth_getLogs"
-
-		chain, err := subctx.GetChain(ctx)
-		if err == nil {
-			if chain.Name == "sei" {
-				logsMethod = "sei_getLogs"
-			}
-		}
-
 		var logs json.RawMessage
-		if err := jrpcutil.Do(ctx, remote, &logs, logsMethod, []any{
+		if err := jrpcutil.Do(ctx, remote, &logs, "eth_getLogs", []any{
 			ethtypes.FilterQuery{
 				FromBlock: &fromBlock,
 				ToBlock:   &toBlock,

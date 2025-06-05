@@ -38,7 +38,7 @@ func (m *blockLookBackRemote) Middleware(next jrpc.Handler) jrpc.Handler {
 			"eth_getUncleCountByBlockNumber", "debug_getRawHeader",
 			"debug_getRawBlock":
 			err = m.check1Param(r)
-		case "eth_getLogs", "sei_getLogs":
+		case "eth_getLogs":
 			err = m.checkGetLogs(r)
 		}
 
