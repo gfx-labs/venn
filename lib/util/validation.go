@@ -12,7 +12,7 @@ import (
 func MethodValidationMiddleware() jrpc.Middleware {
 	return func(next jrpc.Handler) jrpc.Handler {
 		return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
-			if len(r.Method) > 1024 {
+			if len(r.Method) > 256 {
 				_ = w.Send(nil, jsonrpc.NewInvalidRequestError("method name too long"))
 				return
 			}
@@ -24,3 +24,4 @@ func MethodValidationMiddleware() jrpc.Middleware {
 		})
 	}
 }
+
