@@ -60,6 +60,67 @@ func (h *HeadReplacer) toNumericBlockNumber(ctx context.Context, chain *config.C
 	}
 }
 
+// ReplaceBlockNumberInRequest is a helper function that replaces block number parameters in a request.
+// It handles eth_call, eth_getBlockByNumber, and eth_getBlockReceipts methods.
+// The blockParamIndex specifies which parameter contains the block number (0-indexed).
+// Returns the original request if no replacement is needed, or a new request with replaced params.
+func (h *HeadReplacer) ReplaceBlockNumberInRequest(ctx context.Context, r *jrpc.Request, blockParamIndex int) (*jrpc.Request, error) {
+	chain, err := subctx.GetChain(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(r.Params) == 0 {
+		return nil, jsonrpc.NewInvalidParamsError("expected parameters")
+	}
+
+	// Unmarshal params as array of json.RawMessage to handle any number of params
+	var params []json.RawMessage
+	if err := json.Unmarshal(r.Params, &params); err != nil {
+		return nil, err
+	}
+
+	// Check if we have enough parameters
+	if blockParamIndex >= len(params) {
+		return nil, jsonrpc.NewInvalidParamsError("missing block number parameter")
+	}
+
+	// Parse the block number parameter
+	var blockNumber ethtypes.BlockNumber
+	if err := json.Unmarshal(params[blockParamIndex], &blockNumber); err != nil {
+		return nil, err
+	}
+
+	// Check if we need to replace the block number
+	number, passthrough, err := h.toNumericBlockNumber(ctx, chain, &blockNumber)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no replacement needed, return the original request
+	if passthrough {
+		return r, nil
+	}
+
+	// Create a new params array with the replaced block number
+	newParams := make([]any, len(params))
+	for i := range len(params) {
+		if i == blockParamIndex {
+			newParams[i] = number
+		} else {
+			// Keep the original raw JSON for other params
+			newParams[i] = params[i]
+		}
+	}
+
+	r.Params, err = json.Marshal(newParams)
+	if err != nil {
+		return nil, err
+	}
+
+	return r, nil
+}
+
 func (h *HeadReplacer) Middleware(next jrpc.Handler) jrpc.Handler {
 	return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
 		chain, err := subctx.GetChain(r.Context())
@@ -78,100 +139,31 @@ func (h *HeadReplacer) Middleware(next jrpc.Handler) jrpc.Handler {
 			_ = w.Send(h.headstore.Get(r.Context(), chain))
 			return
 		case "eth_getBlockByNumber":
-			// replace latest for current head
-			var request []json.RawMessage
-			if err := json.Unmarshal(r.Params, &request); err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-			if len(request) != 2 {
-				_ = w.Send(nil, jsonrpc.NewInvalidParamsError("expected 2 parameters"))
-				return
-			}
-
-			var blockNumber ethtypes.BlockNumber
-			if err := json.Unmarshal(request[0], &blockNumber); err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-			number, passthrough, err := h.toNumericBlockNumber(r.Context(), chain, &blockNumber)
+			// Block number is the first parameter (index 0)
+			newReq, err := h.ReplaceBlockNumberInRequest(r.Context(), r, 0)
 			if err != nil {
 				_ = w.Send(nil, err)
 				return
 			}
-			if !passthrough {
-				r.Params, err = json.Marshal([]any{number, request[1]})
-				if err != nil {
-					_ = w.Send(nil, err)
-					return
-				}
-			}
-			next.ServeRPC(w, r)
+			next.ServeRPC(w, newReq)
 			return
 		case "eth_getBlockReceipts":
-			// replace latest for current head
-			var request []ethtypes.BlockNumber
-			if err := json.Unmarshal(r.Params, &request); err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-			if len(request) != 1 {
-				_ = w.Send(nil, jsonrpc.NewInvalidParamsError("expected 1 parameter"))
-				return
-			}
-
-			number, passthrough, err := h.toNumericBlockNumber(r.Context(), chain, &request[0])
+			// Block number is the first parameter (index 0)
+			newReq, err := h.ReplaceBlockNumberInRequest(r.Context(), r, 0)
 			if err != nil {
 				_ = w.Send(nil, err)
 				return
 			}
-			if !passthrough {
-				r.Params, err = json.Marshal([]any{number})
-				if err != nil {
-					_ = w.Send(nil, err)
-					return
-				}
-			}
-
-			next.ServeRPC(w, r)
+			next.ServeRPC(w, newReq)
 			return
 		case "eth_call":
-			// replace latest for current head
-			var request []json.RawMessage
-			if err := json.Unmarshal(r.Params, &request); err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-			if len(request) < 2 || len(request) > 3 {
-				_ = w.Send(nil, jsonrpc.NewInvalidParamsError("expected 2-3 parameters"))
-				return
-			}
-
-			var blockNumber ethtypes.BlockNumber
-			if err := json.Unmarshal(request[1], &blockNumber); err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-
-			number, passthrough, err := h.toNumericBlockNumber(r.Context(), chain, &blockNumber)
+			// Block number is the second parameter (index 1)
+			newReq, err := h.ReplaceBlockNumberInRequest(r.Context(), r, 1)
 			if err != nil {
 				_ = w.Send(nil, err)
 				return
 			}
-
-			if !passthrough {
-				newParams := []any{request[0], number}
-				if len(request) == 3 {
-					newParams = append(newParams, request[2])
-				}
-				r.Params, err = json.Marshal(newParams)
-				if err != nil {
-					_ = w.Send(nil, err)
-					return
-				}
-			}
-
-			next.ServeRPC(w, r)
+			next.ServeRPC(w, newReq)
 			return
 		case "eth_getLogs":
 			// replace latest for current head
@@ -228,4 +220,3 @@ func (h *HeadReplacer) Middleware(next jrpc.Handler) jrpc.Handler {
 		}
 	})
 }
-
