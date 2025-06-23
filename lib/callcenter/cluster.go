@@ -3,7 +3,6 @@ package callcenter
 import (
 	"cmp"
 	"errors"
-	"gfx.cafe/open/jrpc"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -17,14 +16,14 @@ import (
 // Cluster combines multiple remotes and attempts each by priority.
 type Cluster struct {
 	priorities     []*clustererPriority
-	remotes        []jrpc.Handler
+	remotes        []*RemoteWithConfig
 	remotePriority []int
 	mu             sync.RWMutex
 }
 
 type clustererPriority struct {
 	priority int
-	remotes  []jrpc.Handler
+	remotes  []*RemoteWithConfig
 	round    atomic.Int64
 }
 
@@ -32,7 +31,7 @@ func NewCluster() *Cluster {
 	return &Cluster{}
 }
 
-func (T *Cluster) Add(priority int, remote jrpc.Handler) {
+func (T *Cluster) Add(priority int, remote *RemoteWithConfig) {
 	T.mu.Lock()
 	defer T.mu.Unlock()
 
@@ -61,13 +60,13 @@ func (T *Cluster) Add(priority int, remote jrpc.Handler) {
 	copy(T.priorities[idx+1:], T.priorities[idx:])
 	T.priorities[idx] = &clustererPriority{
 		priority: priority,
-		remotes: []jrpc.Handler{
+		remotes: []*RemoteWithConfig{
 			remote,
 		},
 	}
 }
 
-func (T *Cluster) Remotes() []jrpc.Handler {
+func (T *Cluster) Remotes() []*RemoteWithConfig {
 	T.mu.RLock()
 	defer T.mu.RUnlock()
 
@@ -89,7 +88,7 @@ func (T *Cluster) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 			j++
 			rem := p.remotes[j%len(p.remotes)]
 
-			rem.ServeRPC(&icept, r)
+			rem.Handler.ServeRPC(&icept, r)
 			if icept.Error != nil {
 
 				// check if error is a user error

@@ -6,21 +6,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"gfx.cafe/gfx/venn/lib/subctx"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"go.uber.org/fx"
 
+	"gfx.cafe/gfx/venn/lib/callcenter"
 	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/ethtypes"
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
 	"gfx.cafe/gfx/venn/lib/stores/headstore"
-	"gfx.cafe/gfx/venn/svc/atoms/cacher"
 	"gfx.cafe/gfx/venn/svc/atoms/election"
 	"gfx.cafe/gfx/venn/svc/quarks/cluster"
 	"gfx.cafe/gfx/venn/svc/services/prom"
@@ -42,7 +38,6 @@ type Params struct {
 	Log      *slog.Logger
 	Lc       fx.Lifecycle
 	Chains   map[string]*config.Chain
-	Cacher   *cacher.Cacher
 	Clusters *cluster.Clusters
 	Head     headstore.Store
 	Election *election.Election
@@ -63,7 +58,6 @@ func New(p Params) (r Result, err error) {
 		dt:        make(map[string]*delayTracker),
 	}
 	r.Stalker = s
-	remote := p.Cacher.Middleware(p.Clusters.Middleware(nil))
 	for _, c := range p.Chains {
 		chain := c
 		blockTime := time.Duration(chain.BlockTimeSeconds * float64(time.Second))
@@ -79,7 +73,12 @@ func New(p Params) (r Result, err error) {
 						if !chain.ParsedStalk {
 							continue
 						}
-						go s.stalk(ctx, chain, remote)
+						cluster, ok := p.Clusters.Remotes[chain.Name]
+						if !ok {
+							s.log.Error("cluster not found for chain. not stalking", "chain", chain.Name)
+							continue
+						}
+						go s.stalk(ctx, chain, cluster)
 					}
 					<-ctx.Done()
 				},
@@ -93,11 +92,11 @@ func New(p Params) (r Result, err error) {
 	return
 }
 
-func (T *Stalker) stalk(ctx context.Context, chain *config.Chain, remote jrpc.Handler) {
+func (T *Stalker) stalk(ctx context.Context, chain *config.Chain, cluster *callcenter.Cluster) {
 	// set the chain context for the requests
 	ctx = subctx.WithChain(ctx, chain)
 	for {
-		waitfor, err := T.tick(ctx, chain, remote)
+		waitfor, err := T.tick(ctx, chain, cluster)
 		if err != nil {
 			select {
 			case <-ctx.Done():
@@ -115,11 +114,11 @@ func (T *Stalker) stalk(ctx context.Context, chain *config.Chain, remote jrpc.Ha
 	}
 }
 
-func (T *Stalker) tick(ctx context.Context, chain *config.Chain, remote jrpc.Handler) (time.Duration, error) {
+func (T *Stalker) tick(ctx context.Context, chain *config.Chain, cluster *callcenter.Cluster) (time.Duration, error) {
 	blockTime := max(time.Duration(chain.BlockTimeSeconds*float64(time.Second)), 500*time.Millisecond)
 	// ask for the latest block
 	var block json.RawMessage
-	if err := jrpcutil.Do(ctx, remote, &block, "eth_getBlockByNumber", []any{"latest", false}); err != nil {
+	if err := jrpcutil.Do(ctx, cluster, &block, "eth_getBlockByNumber", []any{"latest", false}); err != nil {
 		return blockTime, fmt.Errorf("get latest block: %w", err)
 	}
 	now := time.Now()
@@ -213,191 +212,4 @@ func (T *Stalker) tick(ctx context.Context, chain *config.Chain, remote jrpc.Han
 	)
 	return nextWait, nil
 	// otherwise, use the time until the expected time, or 500ms, whichever is greater
-}
-
-func (T *Stalker) toNumericBlockNumber(ctx context.Context, chain *config.Chain, blockNumber *ethtypes.BlockNumber) (value ethtypes.BlockNumber, passthrough bool, err error) {
-	switch *blockNumber {
-	case ethtypes.LatestBlockNumber:
-		head, err := T.headstore.Get(ctx, chain)
-		if err != nil {
-			return 0, true, err
-		}
-		if head == 0 {
-			return 0, true, nil
-		}
-		return ethtypes.BlockNumber(head), false, nil
-	case ethtypes.LatestExecutedBlockNumber, ethtypes.PendingBlockNumber, ethtypes.SafeBlockNumber, ethtypes.FinalizedBlockNumber:
-		return 0, true, nil
-	default:
-		return 0, true, nil
-	}
-}
-
-func (T *Stalker) Middleware(next jrpc.Handler) jrpc.Handler {
-	return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
-		chain, err := subctx.GetChain(r.Context())
-		if err != nil {
-			_ = w.Send(nil, err)
-			return
-		}
-		switch r.Method {
-		case "eth_chainId":
-			_ = w.Send(hexutil.Uint64(chain.Id), nil)
-			return
-		case "net_version":
-			_ = w.Send(strconv.Itoa(chain.Id), nil)
-			return
-		case "eth_blockNumber":
-			_ = w.Send(T.headstore.Get(r.Context(), chain))
-			return
-		case "eth_getBlockByNumber":
-			// replace latest for current head
-			var request []json.RawMessage
-			if err := json.Unmarshal(r.Params, &request); err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-			if len(request) != 2 {
-				_ = w.Send(nil, jsonrpc.NewInvalidParamsError("expected 2 parameters"))
-				return
-			}
-
-			var blockNumber ethtypes.BlockNumber
-			if err := json.Unmarshal(request[0], &blockNumber); err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-			number, passthrough, err := T.toNumericBlockNumber(r.Context(), chain, &blockNumber)
-			if err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-			if !passthrough {
-				r.Params, err = json.Marshal([]any{number, request[1]})
-				if err != nil {
-					_ = w.Send(nil, err)
-					return
-				}
-			}
-			next.ServeRPC(w, r)
-			return
-		case "eth_getBlockReceipts":
-			// replace latest for current head
-			var request []ethtypes.BlockNumber
-			if err := json.Unmarshal(r.Params, &request); err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-			if len(request) != 1 {
-				_ = w.Send(nil, jsonrpc.NewInvalidParamsError("expected 1 parameter"))
-				return
-			}
-
-			number, passthrough, err := T.toNumericBlockNumber(r.Context(), chain, &request[0])
-			if err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-			if !passthrough {
-				r.Params, err = json.Marshal([]any{number})
-				if err != nil {
-					_ = w.Send(nil, err)
-					return
-				}
-			}
-
-			next.ServeRPC(w, r)
-			return
-		case "eth_call":
-			// replace latest for current head
-			var request []json.RawMessage
-			if err := json.Unmarshal(r.Params, &request); err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-			if len(request) < 2 || len(request) > 3 {
-				_ = w.Send(nil, jsonrpc.NewInvalidParamsError("expected 2-3 parameters"))
-				return
-			}
-
-			var blockNumber ethtypes.BlockNumber
-			if err := json.Unmarshal(request[1], &blockNumber); err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-
-			number, passthrough, err := T.toNumericBlockNumber(r.Context(), chain, &blockNumber)
-			if err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-
-			if !passthrough {
-				newParams := []any{request[0], number}
-				if len(request) == 3 {
-					newParams = append(newParams, request[2])
-				}
-				r.Params, err = json.Marshal(newParams)
-				if err != nil {
-					_ = w.Send(nil, err)
-					return
-				}
-			}
-
-			next.ServeRPC(w, r)
-			return
-		case "eth_getLogs":
-			// replace latest for current head
-			var request []ethtypes.FilterQuery
-			if err := json.Unmarshal(r.Params, &request); err != nil {
-				_ = w.Send(nil, err)
-				return
-			}
-			if len(request) != 1 {
-				_ = w.Send(nil, jsonrpc.NewInvalidParamsError("expected 1 parameter"))
-				return
-			}
-
-			if request[0].BlockHash != nil {
-				next.ServeRPC(w, r)
-				return
-			} else {
-				var fromBlock = ethtypes.LatestBlockNumber
-				if request[0].FromBlock != nil {
-					fromBlock = *request[0].FromBlock
-				}
-				var toBlock = ethtypes.LatestBlockNumber
-				if request[0].ToBlock != nil {
-					toBlock = *request[0].ToBlock
-				}
-
-				numberFromBlock, passthrough1, err := T.toNumericBlockNumber(r.Context(), chain, &fromBlock)
-				if err != nil {
-					_ = w.Send(nil, err)
-					return
-				}
-				numberToBlock, passthrough2, err := T.toNumericBlockNumber(r.Context(), chain, &toBlock)
-				if err != nil {
-					_ = w.Send(nil, err)
-					return
-				}
-
-				if !passthrough1 && !passthrough2 {
-					request[0].FromBlock = &numberFromBlock
-					request[0].ToBlock = &numberToBlock
-					r.Params, err = json.Marshal(request)
-					if err != nil {
-						_ = w.Send(nil, err)
-						return
-					}
-				}
-
-				next.ServeRPC(w, r)
-				return
-			}
-		default:
-			next.ServeRPC(w, r)
-			return
-		}
-	})
 }
