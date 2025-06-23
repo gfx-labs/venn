@@ -172,7 +172,8 @@ func New(params Params) (r Result, err error) {
 						remote = mw.BlockLookBack.Middleware(remote)
 					}
 
-					cluster.Add(cfg.Priority, remote)
+					remoteWithConfig := callcenter.NewRemoteWithConfig(remote, cfg)
+					cluster.Add(cfg.Priority, remoteWithConfig)
 
 					return nil
 				},
