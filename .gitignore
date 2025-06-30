@@ -6,3 +6,4 @@ venn.yaml
 *.venn.yml
 ca.pem
 .claude
+/venn

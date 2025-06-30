@@ -149,7 +149,7 @@ func (T *Stalker) tick(ctx context.Context, chain *config.Chain, cluster *callce
 	if prevHead != 0 {
 		// sanity check, head more than 1000 blocks old? it's a bad head.
 		if head.BlockNumber >= prevHead+1000 {
-			return blockTime, fmt.Errorf("head more than 100 blocks old")
+			return blockTime, fmt.Errorf("head more than 1000 blocks old")
 		}
 	}
 
