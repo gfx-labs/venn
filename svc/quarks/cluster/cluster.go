@@ -4,14 +4,15 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"maps"
 	"time"
 
+	"gfx.cafe/gfx/venn/lib/stores/headstore"
 	"gfx.cafe/gfx/venn/lib/subctx"
 	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 
 	"gfx.cafe/gfx/venn/svc/middlewares/blockLookBack"
-	"gfx.cafe/gfx/venn/svc/stores/headstores/redihead"
 
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/contrib/codecs/http"
@@ -20,11 +21,11 @@ import (
 
 	"gfx.cafe/gfx/venn/lib/callcenter"
 	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/svc/services/prom"
 )
 
-// RemoteMiddlewares holds all middleware instances for a specific remote
-type RemoteMiddlewares struct {
+// RemoteTarget holds all middleware instances for a specific remote
+type RemoteTarget struct {
+	BaseProxy     *callcenter.Proxier
 	InputData     *callcenter.InputData
 	Collector     *callcenter.Collector
 	Logger        *callcenter.Logger
@@ -40,17 +41,16 @@ type Clusters struct {
 	Remotes map[string]*callcenter.Cluster
 
 	// Middleware instances stored by chain name, then by remote name
-	middlewares map[string]map[string]*RemoteMiddlewares
+	middlewares map[string]map[string]*RemoteTarget
 }
 
 type Params struct {
 	fx.In
 
-	Log        *slog.Logger
-	Prometheus *prom.Prometheus
-	Chains     map[string]*config.Chain
-	HeadStore  *redihead.Redihead
-	Lc         fx.Lifecycle
+	Log       *slog.Logger
+	Chains    map[string]*config.Chain
+	HeadStore headstore.Store
+	Lc        fx.Lifecycle
 }
 
 type Result struct {
@@ -59,99 +59,99 @@ type Result struct {
 	Clusters *Clusters
 }
 
+// NewRemoteTarget creates a new RemoteTarget from config
+func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, headStore headstore.Store) (*RemoteTarget, *callcenter.Proxier) {
+	// Create base proxier
+	proxier := callcenter.NewProxier(func(ctx context.Context) (jrpc.Conn, error) {
+		c, err := jrpc.DialContext(ctx, string(cfg.Url))
+		if err != nil {
+			return nil, err
+		}
+		switch cc := c.(type) {
+		case *http.Client:
+			for key, value := range cfg.Headers {
+				cc.SetHeader(key, value)
+			}
+		case *websocket.Client:
+			for key, value := range cfg.Headers {
+				cc.SetHeader(key, value)
+			}
+		}
+		return c, nil
+	})
+
+	mw := &RemoteTarget{
+		BaseProxy: proxier,
+		InputData: &callcenter.InputData{},
+		Collector: callcenter.NewCollector(
+			chain.Name,
+			cfg.Name,
+		),
+		Logger: callcenter.NewLogger(
+			log.With("remote", cfg.Name, "chain", chain.Name),
+		),
+		Backer: callcenter.NewBacker(
+			log.With("remote", cfg.Name, "chain", chain.Name),
+			cfg.RateLimitBackoff.Duration,
+			cfg.ErrorBackoffMin.Duration,
+			cfg.ErrorBackoffMax.Duration,
+		),
+		Validator: callcenter.NewValidator(
+			max(time.Minute, time.Duration(float64(time.Second)*2*chain.BlockTimeSeconds)),
+		),
+		Doctor: callcenter.NewDoctor(
+			log.With("remote", cfg.Name, "chain", chain.Name),
+			chain.Id,
+			cfg.HealthCheckIntervalMin.Duration,
+			cfg.HealthCheckIntervalMax.Duration,
+		),
+	}
+
+	if cfg.RateLimit != nil {
+		mw.RateLimiter = callcenter.NewRatelimiter(
+			rate.Limit(cfg.RateLimit.EventsPerSecond),
+			cfg.RateLimit.Burst,
+		)
+	} else {
+		// default values of 50/100
+		mw.RateLimiter = callcenter.NewRatelimiter(
+			50,
+			100,
+		)
+	}
+
+	methods := make(map[string]bool)
+	for _, filter := range cfg.ParsedFilters {
+		maps.Copy(methods, filter.Methods)
+	}
+	mw.Filterer = callcenter.NewFilterer(methods)
+
+	if cfg.MaxBlockLookBack > 0 {
+		mw.BlockLookBack = blockLookBack.New(cfg, headStore)
+	}
+
+	return mw, proxier
+}
+
 func New(params Params) (r Result, err error) {
 	r.Clusters = &Clusters{
 		Remotes:     make(map[string]*callcenter.Cluster),
-		middlewares: make(map[string]map[string]*RemoteMiddlewares),
+		middlewares: make(map[string]map[string]*RemoteTarget),
 	}
 	for _, chain := range params.Chains {
 		cluster := callcenter.NewCluster()
 		r.Clusters.Remotes[chain.Name] = cluster
 		// Initialize the nested map for this chain
-		r.Clusters.middlewares[chain.Name] = make(map[string]*RemoteMiddlewares)
+		r.Clusters.middlewares[chain.Name] = make(map[string]*RemoteTarget)
 		for _, cfg := range chain.Remotes {
 			cfg := cfg
 			toclose := make([]io.Closer, 0)
 			params.Lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
-					// Initialize middleware storage
-					mw := &RemoteMiddlewares{}
+					// Create RemoteTarget using constructor
+					mw, proxier := NewRemoteTarget(cfg, chain, params.Log, params.HeadStore)
 					r.Clusters.middlewares[chain.Name][cfg.Name] = mw
-
-					// Create base proxier
-					proxier := callcenter.NewProxier(func(ctx context.Context) (jrpc.Conn, error) {
-						c, err := jrpc.DialContext(ctx, string(cfg.Url))
-						if err != nil {
-							return nil, err
-						}
-						switch cc := c.(type) {
-						case *http.Client:
-							for key, value := range cfg.Headers {
-								cc.SetHeader(key, value)
-							}
-						case *websocket.Client:
-							for key, value := range cfg.Headers {
-								cc.SetHeader(key, value)
-							}
-						}
-						return c, nil
-					})
 					toclose = append(toclose, proxier)
-
-					mw.InputData = &callcenter.InputData{}
-
-					mw.Collector = callcenter.NewCollector(
-						chain.Name,
-						cfg.Name,
-						params.Prometheus,
-					)
-
-					mw.Logger = callcenter.NewLogger(
-						params.Log.With("remote", cfg.Name, "chain", chain.Name),
-					)
-
-					mw.Backer = callcenter.NewBacker(
-						params.Log.With("remote", cfg.Name, "chain", chain.Name),
-						cfg.RateLimitBackoff.Duration,
-						cfg.ErrorBackoffMin.Duration,
-						cfg.ErrorBackoffMax.Duration,
-					)
-
-					mw.Validator = callcenter.NewValidator(
-						max(time.Minute, time.Duration(float64(time.Second)*2*chain.BlockTimeSeconds)),
-					)
-
-					mw.Doctor = callcenter.NewDoctor(
-						params.Log.With("remote", cfg.Name, "chain", chain.Name),
-						chain.Id,
-						cfg.HealthCheckIntervalMin.Duration,
-						cfg.HealthCheckIntervalMax.Duration,
-					)
-
-					if cfg.RateLimit != nil {
-						mw.RateLimiter = callcenter.NewRatelimiter(
-							rate.Limit(cfg.RateLimit.EventsPerSecond),
-							cfg.RateLimit.Burst,
-						)
-					} else {
-						// default values of 50/100
-						mw.RateLimiter = callcenter.NewRatelimiter(
-							50,
-							100,
-						)
-					}
-
-					methods := make(map[string]bool)
-					for _, filter := range cfg.ParsedFilters {
-						for method, ok := range filter.Methods {
-							methods[method] = ok
-						}
-					}
-					mw.Filterer = callcenter.NewFilterer(methods)
-
-					if cfg.MaxBlockLookBack > 0 {
-						mw.BlockLookBack = blockLookBack.New(cfg, params.HeadStore)
-					}
 
 					// Now build the middleware chain
 					var remote jrpc.Handler = proxier

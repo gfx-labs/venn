@@ -8,6 +8,7 @@ import (
 	"gfx.cafe/gfx/venn/svc/app/node"
 	"gfx.cafe/gfx/venn/svc/atoms/cacher"
 	"gfx.cafe/gfx/venn/svc/atoms/election"
+	"gfx.cafe/gfx/venn/svc/atoms/headstoreProvider"
 	"gfx.cafe/gfx/venn/svc/atoms/stalker"
 	"gfx.cafe/gfx/venn/svc/atoms/subcenter"
 	"gfx.cafe/gfx/venn/svc/atoms/vennstore"
@@ -61,6 +62,7 @@ func (o *StartNode) Run() error {
 		),
 		// more complicated services (atoms)
 		fx.Provide(
+			headstoreProvider.New,
 			subcenter.New,
 			election.New,
 			vennstore.New,

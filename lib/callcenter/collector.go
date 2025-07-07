@@ -11,16 +11,14 @@ import (
 
 // Collector collects prometheus stats for this particular remote.
 type Collector struct {
-	chain      string
-	name       string
-	prometheus *prom.Prometheus
+	chain string
+	name  string
 }
 
-func NewCollector(chain, name string, prometheus *prom.Prometheus) *Collector {
+func NewCollector(chain, name string) *Collector {
 	return &Collector{
-		chain:      chain,
-		name:       name,
-		prometheus: prometheus,
+		chain: chain,
+		name:  name,
 	}
 }
 

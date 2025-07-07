@@ -39,6 +39,7 @@ type Doctor struct {
 	firstCheck sync.WaitGroup
 	health     HealthStatus
 	interval   time.Duration
+	latestBlock hexutil.Uint64
 	mu         sync.Mutex
 }
 
@@ -88,18 +89,33 @@ func (T *Doctor) check() {
 	ctx, cn := context.WithTimeout(T.ctx, 15*time.Second)
 	defer cn()
 
-	var res hexutil.Uint64
-	err := jrpcutil.Do(ctx, T.remote, &res, "eth_chainId", []any{})
+	// First check eth_blockNumber to ensure the node is syncing
+	var blockNumber hexutil.Uint64
+	err := jrpcutil.Do(ctx, T.remote, &blockNumber, "eth_blockNumber", []any{})
+	if err != nil {
+		T.mu.Lock()
+		T.log.Error("remote failed health check", "method", "eth_blockNumber", "error", err)
+		T.health = HealthStatusUnhealthy
+		T.interval = T.minInterval
+		T.timer.Reset(T.interval)
+		T.mu.Unlock()
+		return
+	}
+
+	// Then verify chain ID
+	var chainId hexutil.Uint64
+	err = jrpcutil.Do(ctx, T.remote, &chainId, "eth_chainId", []any{})
 	T.mu.Lock()
 	defer T.mu.Unlock()
 	func() {
 		switch {
 		case err != nil:
-			T.log.Error("remote failed health check", "chain id", T.chainId, "error", err)
-		case int(res) != T.chainId:
-			T.log.Error("remote failed health check", "expected id", T.chainId, "got", int(res))
+			T.log.Error("remote failed health check", "method", "eth_chainId", "error", err)
+		case int(chainId) != T.chainId:
+			T.log.Error("remote failed health check", "expected id", T.chainId, "got", int(chainId))
 		default:
 			T.health = HealthStatusHealthy
+			T.latestBlock = blockNumber
 			T.interval = min(T.maxInterval, T.interval*2)
 			T.timer.Reset(T.interval)
 			return
@@ -147,6 +163,13 @@ func (T *Doctor) Close() error {
 		T.cn()
 		return nil
 	}
+}
+
+// GetLatestBlock returns the latest block number from the most recent health check
+func (T *Doctor) GetLatestBlock() hexutil.Uint64 {
+	T.mu.Lock()
+	defer T.mu.Unlock()
+	return T.latestBlock
 }
 
 var _ Remote = (*Doctor)(nil)
