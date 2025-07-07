@@ -6,8 +6,8 @@ import (
 	"net"
 	"net/http"
 
-	"gfx.cafe/gfx/venn/svc/middlewares/forger"
-	"gfx.cafe/gfx/venn/svc/services/redi"
+	"gfx.cafe/gfx/venn/svc/node/middlewares/forger"
+	"gfx.cafe/gfx/venn/svc/shared/services/redi"
 
 	"gfx.cafe/open/jrpc/contrib/jrpcutil"
 	"gfx.cafe/util/go/gotel"
@@ -30,13 +30,13 @@ import (
 	"gfx.cafe/gfx/venn/lib/ratelimit"
 	"gfx.cafe/gfx/venn/lib/subctx"
 	"gfx.cafe/gfx/venn/lib/util"
-	"gfx.cafe/gfx/venn/svc/atoms/cacher"
-	"gfx.cafe/gfx/venn/svc/atoms/stalker"
-	"gfx.cafe/gfx/venn/svc/atoms/subcenter"
-	"gfx.cafe/gfx/venn/svc/quarks/cluster"
+	"gfx.cafe/gfx/venn/svc/node/atoms/cacher"
+	"gfx.cafe/gfx/venn/svc/node/atoms/stalker"
+	"gfx.cafe/gfx/venn/svc/node/atoms/subcenter"
+	"gfx.cafe/gfx/venn/svc/node/quarks/cluster"
 
-	"gfx.cafe/gfx/venn/svc/middlewares/headreplacer"
-	"gfx.cafe/gfx/venn/svc/middlewares/promcollect"
+	"gfx.cafe/gfx/venn/svc/node/middlewares/headreplacer"
+	"gfx.cafe/gfx/venn/svc/node/middlewares/promcollect"
 )
 
 type Params struct {

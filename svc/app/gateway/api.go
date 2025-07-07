@@ -37,9 +37,9 @@ import (
 	"gfx.cafe/gfx/venn/lib/subctx"
 	"gfx.cafe/gfx/venn/lib/util"
 	"gfx.cafe/gfx/venn/lib/util/origin"
-	"gfx.cafe/gfx/venn/svc/quarks/telemetry"
-	"gfx.cafe/gfx/venn/svc/services/prom"
-	"gfx.cafe/gfx/venn/svc/services/redi"
+	"gfx.cafe/gfx/venn/svc/gateway/quarks/telemetry"
+	"gfx.cafe/gfx/venn/svc/shared/services/prom"
+	"gfx.cafe/gfx/venn/svc/shared/services/redi"
 )
 
 type Params struct {
