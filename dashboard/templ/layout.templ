@@ -1,0 +1,90 @@
+package templates
+
+templ Layout(content templ.Component) {
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>Venn Dashboard</title>
+        <link rel="stylesheet" href="/dashboard/static/css/output.css"/>
+        <script src="/dashboard/static/js/htmx.min.js"></script>
+        <script src="/dashboard/static/js/hyperscript.min.js"></script>
+    </head>
+    <body class="bg-gray-900 text-gray-100 min-h-screen">
+        @content
+        
+        <!-- Reload Timer Modal -->
+        <div class="fixed bottom-4 right-4 bg-gray-800 border border-gray-700 rounded-lg p-3 shadow-lg">
+            <div class="flex items-center gap-3">
+                <div class="relative h-5 w-5">
+                    <svg class="h-5 w-5 transform -rotate-90">
+                        <circle cx="10" cy="10" r="8" stroke="#4B5563" stroke-width="2" fill="none" />
+                        <circle id="progress-circle" cx="10" cy="10" r="8" stroke="#60A5FA" stroke-width="2" fill="none"
+                                stroke-dasharray="50.26548" stroke-dashoffset="50.26548" />
+                    </svg>
+                </div>
+                <div class="text-sm">
+                    <span class="text-gray-400">Refreshes every 5 seconds</span>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+            // Progress circle for HTMX refresh
+            (function() {
+                let countdown = 5;
+                let isUpdating = false;
+                const progressCircle = document.getElementById('progress-circle');
+                const circumference = 2 * Math.PI * 8; // 2πr where r=8
+                
+                function updateProgress() {
+                    if (isUpdating) return;
+                    
+                    const progress = (5 - countdown) / 5;
+                    const offset = circumference - (progress * circumference);
+                    if (progressCircle) {
+                        progressCircle.style.strokeDashoffset = offset;
+                        progressCircle.style.transition = 'stroke-dashoffset 1s linear';
+                    }
+                }
+                
+                // Reset when HTMX makes a request
+                document.body.addEventListener('htmx:beforeRequest', function() {
+                    isUpdating = true;
+                    countdown = 5;
+                    // Keep circle full during update
+                    if (progressCircle) {
+                        progressCircle.style.strokeDashoffset = '0';
+                        progressCircle.style.transition = 'none';
+                    }
+                });
+                
+                // Resume after request completes
+                document.body.addEventListener('htmx:afterRequest', function() {
+                    isUpdating = false;
+                    countdown = 5;
+                    if (progressCircle) {
+                        progressCircle.style.strokeDashoffset = circumference;
+                        progressCircle.style.transition = 'none';
+                    }
+                });
+                
+                // Update every second
+                setInterval(function() {
+                    if (!isUpdating && countdown > 0) {
+                        countdown--;
+                        updateProgress();
+                    }
+                    if (countdown <= 0 && !isUpdating) {
+                        countdown = 5;
+                    }
+                }, 1000);
+                
+                // Initialize
+                updateProgress();
+            })();
+        </script>
+    </body>
+    </html>
+}

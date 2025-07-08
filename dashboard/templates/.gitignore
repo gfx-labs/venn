@@ -1,0 +1,5 @@
+# This directory contains generated files from templ
+# Keep this directory but ignore generated content
+*_templ.go
+!.gitignore
+!doc.go

@@ -14,20 +14,21 @@ import (
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 )
 
-type blockLookBackRemote struct {
+// BlockLookBack is a middleware that prevents requests for blocks that are too old
+type BlockLookBack struct {
 	cfg       *config.Remote
 	headStore headstore.Store
 }
 
-func New(cfg *config.Remote, headStore headstore.Store) callcenter.Middleware {
-	return &blockLookBackRemote{
+func New(cfg *config.Remote, headStore headstore.Store) *BlockLookBack {
+	return &BlockLookBack{
 		cfg:       cfg,
 		headStore: headStore,
 	}
 }
 
-func (m *blockLookBackRemote) Middleware(next jrpc.Handler) jrpc.Handler {
-	return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
+func (m *BlockLookBack) Middleware(next jrpc.Handler) jrpc.Handler {
+	return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 		var err error
 		switch r.Method {
 		case "eth_getBlockByNumber", "eth_getTransactionByBlockNumberAndIndex":
@@ -51,7 +52,7 @@ func (m *blockLookBackRemote) Middleware(next jrpc.Handler) jrpc.Handler {
 	})
 }
 
-func (m *blockLookBackRemote) validateBlockNumber(ctx context.Context, blockNumber ethtypes.BlockNumber) error {
+func (m *BlockLookBack) validateBlockNumber(ctx context.Context, blockNumber ethtypes.BlockNumber) error {
 	chain, err := subctx.GetChain(ctx)
 	if err != nil {
 		return err
@@ -69,7 +70,7 @@ func (m *blockLookBackRemote) validateBlockNumber(ctx context.Context, blockNumb
 	return err
 }
 
-func (m *blockLookBackRemote) check2Param(r *jrpc.Request, index int) error {
+func (m *BlockLookBack) check2Param(r *jrpc.Request, index int) error {
 	var params []json.RawMessage
 	if err := json.Unmarshal(r.Params, &params); err != nil {
 		return err
@@ -86,7 +87,7 @@ func (m *blockLookBackRemote) check2Param(r *jrpc.Request, index int) error {
 	return m.validateBlockNumber(r.Context(), blockNumber)
 }
 
-func (m *blockLookBackRemote) check1Param(r *jrpc.Request) error {
+func (m *BlockLookBack) check1Param(r *jrpc.Request) error {
 	var params []ethtypes.BlockNumber
 	if err := json.Unmarshal(r.Params, &params); err != nil {
 		return err
@@ -98,7 +99,7 @@ func (m *blockLookBackRemote) check1Param(r *jrpc.Request) error {
 	return m.validateBlockNumber(r.Context(), params[0])
 }
 
-func (m *blockLookBackRemote) checkGetLogs(r *jrpc.Request) error {
+func (m *BlockLookBack) checkGetLogs(r *jrpc.Request) error {
 	var params []ethtypes.FilterQuery
 	if err := json.Unmarshal(r.Params, &params); err != nil {
 		return err
@@ -113,3 +114,5 @@ func (m *blockLookBackRemote) checkGetLogs(r *jrpc.Request) error {
 
 	return nil
 }
+
+var _ callcenter.Middleware = (*BlockLookBack)(nil)

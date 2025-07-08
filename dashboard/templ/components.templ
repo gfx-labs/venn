@@ -1,0 +1,25 @@
+package templates
+
+import (
+    "gfx.cafe/gfx/venn/lib/callcenter"
+)
+
+templ StatusBadge(status callcenter.HealthStatus) {
+    switch status {
+    case callcenter.HealthStatusHealthy:
+        <span class="inline-flex items-center text-green-400">
+            <span class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+            Healthy
+        </span>
+    case callcenter.HealthStatusUnhealthy:
+        <span class="inline-flex items-center text-red-400">
+            <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+            Unhealthy
+        </span>
+    default:
+        <span class="inline-flex items-center text-gray-500">
+            <span class="w-2 h-2 bg-gray-500 rounded-full mr-2"></span>
+            Unknown
+        </span>
+    }
+}

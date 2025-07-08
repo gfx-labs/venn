@@ -1,0 +1,3 @@
+# Ignore generated templ files
+*_templ.go
+*_templ.txt

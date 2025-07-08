@@ -34,7 +34,7 @@ type RemoteTarget struct {
 	Doctor        *callcenter.Doctor
 	RateLimiter   *callcenter.Ratelimiter
 	Filterer      *callcenter.Filterer
-	BlockLookBack callcenter.Middleware // blockLookBack returns a Middleware interface
+	BlockLookBack *blockLookBack.BlockLookBack
 }
 
 type Clusters struct {

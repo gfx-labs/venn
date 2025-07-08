@@ -3,12 +3,13 @@ package dashboard
 import (
 	"embed"
 	"net/http"
+	"sort"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/go-chi/chi/v5"
 
 	"gfx.cafe/gfx/venn/dashboard/templates"
+	"gfx.cafe/gfx/venn/lib/callcenter"
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/stores/headstore"
 	"gfx.cafe/gfx/venn/svc/node/quarks/cluster"
@@ -39,85 +40,39 @@ func (h *Handler) Mount(r chi.Router) {
 		// Dashboard page
 		r.Get("/", h.handleDashboard)
 		
+		// HTMX endpoints
+		r.Get("/chains", h.handleChainsUpdate)
+		
 		// Chain detail page
 		r.Get("/{chainName}", h.handleChainDetail)
 		
-		// API endpoints
-		r.Get("/api/chain/{chainName}", h.handleChainStatus)
+		// HTMX endpoints for chain detail
+		r.Get("/{chainName}/remotes", h.handleRemotesUpdate)
 	})
 }
 
 func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	chains := make([]templates.ChainInfo, 0, len(h.chains))
+	chains := h.getChainInfos(r)
 	
-	for _, chain := range h.chains {
-		headBlock, _ := h.headstore.Get(r.Context(), chain)
-		
-		// Check if chain cluster exists and get health status
-		isHealthy := false
-		if cluster, ok := h.clusters.Remotes[chain.Name]; ok {
-			// Check if we can get a response from the cluster
-			isHealthy = cluster != nil
-		}
-		
-		chains = append(chains, templates.ChainInfo{
-			Name:        chain.Name,
-			ChainID:     chain.Id,
-			HeadBlock:   uint64(headBlock),
-			IsHealthy:   isHealthy,
-			LastUpdated: time.Now().Format("15:04:05"),
-			BlockTime:   chain.BlockTimeSeconds,
-		})
-	}
-	
-	templates.RenderDashboard(w, chains)
-}
-
-func (h *Handler) handleChainStatus(w http.ResponseWriter, r *http.Request) {
-	chainName := chi.URLParam(r, "chainName")
-	
-	chain, exists := h.chains[chainName]
-	if !exists {
-		http.Error(w, "Chain not found", http.StatusNotFound)
+	// Render template
+	component := templates.Index(chains)
+	if err := component.Render(r.Context(), w); err != nil {
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
 		return
 	}
+}
+
+func (h *Handler) handleChainsUpdate(w http.ResponseWriter, r *http.Request) {
+	chains := h.getChainInfos(r)
 	
-	headBlock, _ := h.headstore.Get(r.Context(), chain)
-	
-	// Check health status
-	isHealthy := false
-	if cluster, ok := h.clusters.Remotes[chain.Name]; ok {
-		isHealthy = cluster != nil
-	}
-	
-	// Get latest block info from cluster if available
-	if cluster, ok := h.clusters.Remotes[chain.Name]; ok && cluster != nil {
-		// Get the latest block number from the doctor if it implements GetLatestBlock
-		for chainName, remoteTargets := range h.clusters.GetMiddlewares() {
-			if chainName == chain.Name {
-				for _, target := range remoteTargets {
-					if target.Doctor != nil {
-						latestBlock := target.Doctor.GetLatestBlock()
-						if latestBlock > 0 {
-							headBlock = hexutil.Uint64(latestBlock)
-						}
-					}
-				}
-			}
+	// Render chain cards only
+	for _, chain := range chains {
+		component := templates.ChainCard(chain)
+		if err := component.Render(r.Context(), w); err != nil {
+			http.Error(w, "Failed to render template", http.StatusInternalServerError)
+			return
 		}
 	}
-	
-	chainInfo := templates.ChainInfo{
-		Name:        chain.Name,
-		ChainID:     chain.Id,
-		HeadBlock:   uint64(headBlock),
-		IsHealthy:   isHealthy,
-		LastUpdated: time.Now().Format("15:04:05"),
-		BlockTime:   chain.BlockTimeSeconds,
-	}
-	
-	// Render the full card with HTMX attributes
-	templates.RenderChainCardWithHTMX(w, chainInfo)
 }
 
 func (h *Handler) handleChainDetail(w http.ResponseWriter, r *http.Request) {
@@ -131,17 +86,94 @@ func (h *Handler) handleChainDetail(w http.ResponseWriter, r *http.Request) {
 	
 	headBlock, _ := h.headstore.Get(r.Context(), chain)
 	
-	// Check overall health status
-	isHealthy := false
-	if cluster, ok := h.clusters.Remotes[chain.Name]; ok {
-		isHealthy = cluster != nil
+	// Collect remote information
+	remotes := h.getRemoteInfos(chainName, chain)
+	
+	healthyCount := 0
+	for _, remote := range remotes {
+		if remote.Status == callcenter.HealthStatusHealthy {
+			healthyCount++
+		}
 	}
 	
-	// Collect remote information
-	remotes := []templates.RemoteInfo{}
-	activeRemotes := 0
+	data := templates.ChainDetailData{
+		ChainInfo: templates.ChainInfo{
+			Name:           chain.Name,
+			ChainID:        uint64(chain.Id),
+			HeadBlock:      uint64(headBlock),
+			Status:         h.getChainStatus(chainName),
+			RemoteCount:    len(remotes),
+			HealthyCount:   healthyCount,
+			UnhealthyCount: len(remotes) - healthyCount,
+		},
+		Remotes: remotes,
+	}
 	
-	if middlewares, ok := h.clusters.GetMiddlewares()[chain.Name]; ok {
+	// Render template
+	component := templates.ChainDetail(data)
+	if err := component.Render(r.Context(), w); err != nil {
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *Handler) handleRemotesUpdate(w http.ResponseWriter, r *http.Request) {
+	chainName := chi.URLParam(r, "chainName")
+	
+	chain, exists := h.chains[chainName]
+	if !exists {
+		http.Error(w, "Chain not found", http.StatusNotFound)
+		return
+	}
+	
+	remotes := h.getRemoteInfos(chainName, chain)
+	
+	// Render only the remotes list
+	component := templates.RemotesList(remotes)
+	if err := component.Render(r.Context(), w); err != nil {
+		http.Error(w, "Failed to render template", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *Handler) getChainInfos(r *http.Request) []templates.ChainInfo {
+	chains := make([]templates.ChainInfo, 0, len(h.chains))
+	
+	for _, chain := range h.chains {
+		headBlock, _ := h.headstore.Get(r.Context(), chain)
+		
+		// Count healthy remotes
+		remotes := h.getRemoteInfos(chain.Name, chain)
+		healthyCount := 0
+		for _, remote := range remotes {
+			if remote.Status == callcenter.HealthStatusHealthy {
+				healthyCount++
+			}
+		}
+		
+		chains = append(chains, templates.ChainInfo{
+			Name:           chain.Name,
+			ChainID:        uint64(chain.Id),
+			HeadBlock:      uint64(headBlock),
+			Status:         h.getChainStatus(chain.Name),
+			RemoteCount:    len(remotes),
+			HealthyCount:   healthyCount,
+			UnhealthyCount: len(remotes) - healthyCount,
+		})
+	}
+	
+	// Sort chains alphabetically by name
+	sort.Slice(chains, func(i, j int) bool {
+		return chains[i].Name < chains[j].Name
+	})
+	
+	return chains
+}
+
+func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templates.RemoteInfo {
+	remotes := []templates.RemoteInfo{}
+	
+	if middlewares, ok := h.clusters.GetMiddlewares()[chainName]; ok {
 		for remoteName, target := range middlewares {
 			// Find the config for this remote
 			var remoteConfig *config.Remote
@@ -156,49 +188,79 @@ func (h *Handler) handleChainDetail(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			
-			remoteHealthy := false
+			status := callcenter.HealthStatusUnknown
 			latestBlock := uint64(0)
+			responseTime := ""
+			var latencyAvg, latencyMin, latencyMax time.Duration
+			var lastError string
+			priority := remoteConfig.Priority
+			maxBlockLookBack := int64(0)
 			
-			// Check if doctor is healthy
+			// Check if doctor exists and get health status
 			if target.Doctor != nil {
-				remoteHealthy = target.Doctor.GetLatestBlock() > 0
+				// Check if doctor has a recent block
 				latestBlock = uint64(target.Doctor.GetLatestBlock())
+				if latestBlock > 0 {
+					status = callcenter.HealthStatusHealthy
+				} else {
+					status = callcenter.HealthStatusUnhealthy
+				}
+				
+				// Get latency stats for health checks
+				stats := target.Doctor.GetLatencyStats()
+				latencyAvg = stats.Average
+				latencyMin = stats.Min
+				latencyMax = stats.Max
+				
+				// Get last error
+				lastError = target.Doctor.GetLastError()
+				
+				// Calculate response time (could be added to doctor)
+				responseTime = "N/A"
 			}
 			
-			if remoteHealthy {
-				activeRemotes++
-			}
-			
-			rateLimit := 50.0 // default
-			if remoteConfig.RateLimit != nil {
-				rateLimit = remoteConfig.RateLimit.EventsPerSecond
+			// Check if BlockLookBack is configured
+			if target.BlockLookBack != nil {
+				maxBlockLookBack = int64(remoteConfig.MaxBlockLookBack)
 			}
 			
 			remotes = append(remotes, templates.RemoteInfo{
-				Name:        remoteName,
-				URL:         string(remoteConfig.Url),
-				Priority:    remoteConfig.Priority,
-				IsHealthy:   remoteHealthy,
-				LatestBlock: latestBlock,
-				RateLimit:   rateLimit,
-				LastError:   "", // Could be populated from error tracking
+				Name:         remoteName,
+				Status:       status,
+				LatestBlock:  latestBlock,
+				ResponseTime: responseTime,
+				LatencyAvg:   latencyAvg,
+				LatencyMin:   latencyMin,
+				LatencyMax:   latencyMax,
+				LastError:    lastError,
+				Priority:     priority,
+				MaxBlockLookBack: maxBlockLookBack,
 			})
 		}
 	}
 	
-	data := templates.ChainDetailData{
-		Chain: templates.ChainInfo{
-			Name:        chain.Name,
-			ChainID:     chain.Id,
-			HeadBlock:   uint64(headBlock),
-			IsHealthy:   isHealthy,
-			LastUpdated: time.Now().Format("15:04:05"),
-			BlockTime:   chain.BlockTimeSeconds,
-		},
-		Remotes:       remotes,
-		ActiveRemotes: activeRemotes,
-		TotalRemotes:  len(remotes),
-	}
+	// Sort remotes by priority (lower is better), then by name
+	sort.Slice(remotes, func(i, j int) bool {
+		if remotes[i].Priority != remotes[j].Priority {
+			return remotes[i].Priority < remotes[j].Priority
+		}
+		return remotes[i].Name < remotes[j].Name
+	})
 	
-	templates.RenderChainDetail(w, data)
+	return remotes
+}
+
+func (h *Handler) getChainStatus(chainName string) callcenter.HealthStatus {
+	if cluster, ok := h.clusters.Remotes[chainName]; ok && cluster != nil {
+		// Check if any remote is healthy
+		if middlewares, ok := h.clusters.GetMiddlewares()[chainName]; ok {
+			for _, target := range middlewares {
+				if target.Doctor != nil && target.Doctor.GetLatestBlock() > 0 {
+					return callcenter.HealthStatusHealthy
+				}
+			}
+		}
+		return callcenter.HealthStatusUnhealthy
+	}
+	return callcenter.HealthStatusUnknown
 }
