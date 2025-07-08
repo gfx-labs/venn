@@ -41,7 +41,6 @@ type Doctor struct {
 	firstCheck    sync.WaitGroup
 	health        HealthStatus
 	interval      time.Duration
-	latestBlock   hexutil.Uint64
 	latencyWindow *rolling.TimePolicy
 	lastError     string
 	mu            sync.Mutex
@@ -134,7 +133,6 @@ func (T *Doctor) check() {
 			T.lastError = errMsg
 		default:
 			T.health = HealthStatusHealthy
-			T.latestBlock = blockNumber
 			T.lastError = ""
 			T.interval = min(T.maxInterval, T.interval*2)
 			T.timer.Reset(T.interval)
@@ -146,8 +144,8 @@ func (T *Doctor) check() {
 	}()
 }
 
-// canUse will return true if the remote is healthy, false if it is unhealthy, and will block until the first check is complete.
-func (T *Doctor) canUse() bool {
+// CanUse will return true if the remote is healthy, false if it is unhealthy, and will block until the first check is complete.
+func (T *Doctor) CanUse() bool {
 	T.mu.Lock()
 	if T.health == HealthStatusHealthy {
 		T.interval = T.minInterval
@@ -163,11 +161,11 @@ func (T *Doctor) canUse() bool {
 	// wait on the first check to complete.
 	T.firstCheck.Wait()
 	// at this point, we know we are no longer state unknown, so we can do the check again
-	return T.canUse()
+	return T.CanUse()
 }
 
 func (T *Doctor) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
-	if !T.canUse() {
+	if !T.CanUse() {
 		_ = w.Send(nil, ErrUnhealthy)
 		return
 	}
@@ -183,13 +181,6 @@ func (T *Doctor) Close() error {
 		T.cn()
 		return nil
 	}
-}
-
-// GetLatestBlock returns the latest block number from the most recent health check
-func (T *Doctor) GetLatestBlock() hexutil.Uint64 {
-	T.mu.Lock()
-	defer T.mu.Unlock()
-	return T.latestBlock
 }
 
 // GetLatencyStats returns the latency statistics for health checks

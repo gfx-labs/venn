@@ -53,6 +53,13 @@ func (h *Handler) Mount(r chi.Router) {
 	})
 }
 
+// setNoCacheHeaders sets headers to prevent caching of dynamic data
+func setNoCacheHeaders(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+}
+
 func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	chains := h.getChainInfos(r)
 	
@@ -65,6 +72,7 @@ func (h *Handler) handleDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleChainsUpdate(w http.ResponseWriter, r *http.Request) {
+	setNoCacheHeaders(w)
 	chains := h.getChainInfos(r)
 	
 	// Render chain cards only
@@ -89,7 +97,7 @@ func (h *Handler) handleChainDetail(w http.ResponseWriter, r *http.Request) {
 	headBlock, _ := h.headstore.Get(r.Context(), chain)
 	
 	// Collect remote information
-	remotes := h.getRemoteInfos(chainName, chain)
+	remotes := h.getRemoteInfos(chainName, chain, uint64(headBlock))
 	
 	healthyCount := 0
 	for _, remote := range remotes {
@@ -120,6 +128,7 @@ func (h *Handler) handleChainDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleRemotesUpdate(w http.ResponseWriter, r *http.Request) {
+	setNoCacheHeaders(w)
 	chainName := chi.URLParam(r, "chainName")
 	
 	chain, exists := h.chains[chainName]
@@ -128,7 +137,8 @@ func (h *Handler) handleRemotesUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	remotes := h.getRemoteInfos(chainName, chain)
+	headBlock, _ := h.headstore.Get(r.Context(), chain)
+	remotes := h.getRemoteInfos(chainName, chain, uint64(headBlock))
 	
 	// Render only the remotes list
 	component := templates.RemotesList(remotes)
@@ -147,7 +157,7 @@ func (h *Handler) getChainInfos(r *http.Request) []templates.ChainInfo {
 			headBlock, _ := h.headstore.Get(r.Context(), chain)
 			
 			// Count healthy remotes
-			remotes := h.getRemoteInfos(chain.Name, chain)
+			remotes := h.getRemoteInfos(chain.Name, chain, uint64(headBlock))
 			healthyCount := 0
 			for _, remote := range remotes {
 				if remote.Status == callcenter.HealthStatusHealthy {
@@ -180,7 +190,7 @@ func (h *Handler) getChainInfos(r *http.Request) []templates.ChainInfo {
 	return []templates.ChainInfo{}
 }
 
-func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templates.RemoteInfo {
+func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain, headBlock uint64) []templates.RemoteInfo {
 	// Use singleflight to prevent duplicate work
 	key := "getRemoteInfos:" + chainName
 	result, _, _ := h.sf.Do(key, func() (interface{}, error) {
@@ -210,11 +220,18 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templa
 			maxBlockLookBack := int64(0)
 			var requestsPerMin float64
 			
+			// Get latest block from validator
+			var lastUpdated time.Time
+			if target.Validator != nil {
+				head, updated := target.Validator.GetHead()
+				latestBlock = uint64(head)
+				lastUpdated = updated
+			}
+			
 			// Check if doctor exists and get health status
 			if target.Doctor != nil {
-				// Check if doctor has a recent block
-				latestBlock = uint64(target.Doctor.GetLatestBlock())
-				if latestBlock > 0 {
+				// Get health status from doctor
+				if target.Doctor.CanUse() {
 					status = callcenter.HealthStatusHealthy
 				} else {
 					status = callcenter.HealthStatusUnhealthy
@@ -228,8 +245,12 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templa
 				
 				// Get last error
 				lastError = target.Doctor.GetLastError()
-				
-				// Calculate response time (could be added to doctor)
+			}
+			
+			// Calculate response time as time since last update
+			if !lastUpdated.IsZero() {
+				responseTime = time.Since(lastUpdated).Round(time.Second).String()
+			} else {
 				responseTime = "N/A"
 			}
 			
@@ -243,10 +264,17 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templa
 				requestsPerMin = target.Collector.GetRequestsPerMinute()
 			}
 			
+			// Calculate blocks behind
+			var blocksBehind int64
+			if headBlock > 0 && latestBlock > 0 {
+				blocksBehind = int64(headBlock) - int64(latestBlock)
+			}
+			
 			remotes = append(remotes, templates.RemoteInfo{
 				Name:         remoteName,
 				Status:       status,
 				LatestBlock:  latestBlock,
+				BlocksBehind: blocksBehind,
 				ResponseTime: responseTime,
 				LatencyAvg:   latencyAvg,
 				LatencyMin:   latencyMin,
@@ -281,7 +309,7 @@ func (h *Handler) getChainStatus(chainName string) callcenter.HealthStatus {
 		// Check if any remote is healthy
 		if middlewares, ok := h.clusters.GetMiddlewares()[chainName]; ok {
 			for _, target := range middlewares {
-				if target.Doctor != nil && target.Doctor.GetLatestBlock() > 0 {
+				if target.Doctor != nil && target.Doctor.CanUse() {
 					return callcenter.HealthStatusHealthy
 				}
 			}

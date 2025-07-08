@@ -22,6 +22,7 @@ type RemoteInfo struct {
     Name             string
     Status           callcenter.HealthStatus
     LatestBlock      uint64
+    BlocksBehind     int64
     ResponseTime     string
     LatencyAvg       time.Duration
     LatencyMin       time.Duration

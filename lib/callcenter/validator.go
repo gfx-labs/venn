@@ -244,3 +244,10 @@ func extractBlockTimeAndTimestamp(block any) (hexutil.Uint64, time.Time, error) 
 		return 0, time.Time{}, fmt.Errorf("expected block, got type %T", block)
 	}
 }
+
+// GetHead returns the current head block number and last updated time
+func (T *Validator) GetHead() (hexutil.Uint64, time.Time) {
+	T.mu.Lock()
+	defer T.mu.Unlock()
+	return T.head, T.updated
+}
