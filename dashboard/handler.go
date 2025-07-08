@@ -195,6 +195,8 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templa
 			var lastError string
 			priority := remoteConfig.Priority
 			maxBlockLookBack := int64(0)
+			var rateLimitTokens, rateLimitPerSec float64
+			var rateLimitBurst int
 			
 			// Check if doctor exists and get health status
 			if target.Doctor != nil {
@@ -224,6 +226,13 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templa
 				maxBlockLookBack = int64(remoteConfig.MaxBlockLookBack)
 			}
 			
+			// Check if RateLimiter is configured
+			if target.RateLimiter != nil {
+				rateLimitTokens = target.RateLimiter.GetTokens()
+				rateLimitPerSec = float64(target.RateLimiter.GetLimit())
+				rateLimitBurst = target.RateLimiter.GetBurst()
+			}
+			
 			remotes = append(remotes, templates.RemoteInfo{
 				Name:         remoteName,
 				Status:       status,
@@ -235,6 +244,9 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templa
 				LastError:    lastError,
 				Priority:     priority,
 				MaxBlockLookBack: maxBlockLookBack,
+				RateLimitTokens:  rateLimitTokens,
+				RateLimitPerSec:  rateLimitPerSec,
+				RateLimitBurst:   rateLimitBurst,
 			})
 		}
 	}

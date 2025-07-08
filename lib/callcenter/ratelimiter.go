@@ -28,3 +28,18 @@ func (T *Ratelimiter) Middleware(next jrpc.Handler) jrpc.Handler {
 		next.ServeRPC(w, r)
 	})
 }
+
+// GetTokens returns the current number of available tokens
+func (T *Ratelimiter) GetTokens() float64 {
+	return T.limiter.Tokens()
+}
+
+// GetLimit returns the rate limit (tokens per second)
+func (T *Ratelimiter) GetLimit() rate.Limit {
+	return T.limiter.Limit()
+}
+
+// GetBurst returns the maximum burst size
+func (T *Ratelimiter) GetBurst() int {
+	return T.limiter.Burst()
+}

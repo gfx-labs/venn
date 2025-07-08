@@ -29,6 +29,9 @@ type RemoteInfo struct {
     LastError     string
     Priority      int
     MaxBlockLookBack int64
+    RateLimitTokens  float64
+    RateLimitPerSec  float64
+    RateLimitBurst   int
 }
 
 templ Index(chains []ChainInfo) {

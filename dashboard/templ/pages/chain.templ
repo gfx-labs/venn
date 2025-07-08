@@ -92,6 +92,13 @@ templ RemoteCard(remote RemoteInfo) {
                             <p class="font-mono text-sm">{ fmt.Sprintf("%d blocks", remote.MaxBlockLookBack) }</p>
                         </div>
                     }
+                    if remote.RateLimitPerSec > 0 {
+                        <div class="text-right">
+                            <p class="text-xs text-gray-400">Rate Limit</p>
+                            <p class="font-mono text-sm">{ fmt.Sprintf("%.0f/%.0f", remote.RateLimitTokens, remote.RateLimitPerSec) }</p>
+                            <p class="text-xs text-gray-500">Burst: { fmt.Sprintf("%d", remote.RateLimitBurst) }</p>
+                        </div>
+                    }
                     if remote.LatencyAvg > 0 {
                         <div class="text-right">
                             <p class="text-xs text-gray-400">Health Check Latency</p>
