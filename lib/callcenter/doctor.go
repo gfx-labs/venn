@@ -54,7 +54,7 @@ func NewDoctor(log *slog.Logger, chainId int, minInterval, maxInterval time.Dura
 		maxInterval:   maxInterval,
 		log:           log,
 		interval:      minInterval,
-		latencyWindow: rolling.NewTimePolicy(rolling.NewWindow(100), time.Minute), // Keep 1 minute of latency measurements
+		latencyWindow: rolling.NewTimePolicy(rolling.NewWindow(256), time.Minute), // Keep 1 minute of latency measurements
 	}
 }
 
