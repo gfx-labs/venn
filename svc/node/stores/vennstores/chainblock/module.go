@@ -9,6 +9,7 @@ import (
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/bytedance/sonic"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/go-faster/jx"
@@ -87,7 +88,7 @@ func (T *Chainblock) getBlockHeaders(ctx context.Context, remote jrpc.Handler, q
 			ParentHash  common.Hash    `json:"parentHash"`
 		}
 
-		if err := json.Unmarshal(out.Value, &head); err != nil {
+		if err := sonic.Unmarshal(out.Value, &head); err != nil {
 			return nil, err
 		}
 
@@ -117,7 +118,7 @@ func (T *Chainblock) getBlockHeaders(ctx context.Context, remote jrpc.Handler, q
 				ParentHash common.Hash `json:"parentHash"`
 			}
 
-			if err := json.Unmarshal(res.Value, &head); err != nil {
+			if err := sonic.Unmarshal(res.Value, &head); err != nil {
 				return nil, err
 			}
 
@@ -158,7 +159,7 @@ func (T *Chainblock) getReceipts(ctx context.Context, remote jrpc.Handler, query
 				BlockHash common.Hash `json:"blockHash"`
 			}
 
-			if err := json.Unmarshal(res.Value, &head); err != nil {
+			if err := sonic.Unmarshal(res.Value, &head); err != nil {
 				return nil, err
 			}
 
@@ -197,7 +198,7 @@ func (T *Chainblock) getLogs(ctx context.Context, remote jrpc.Handler, query blo
 			BlockNumber hexutil.Uint64 `json:"blockNumber"`
 		}
 
-		if err := json.Unmarshal(out.Value, &head); err != nil {
+		if err := sonic.Unmarshal(out.Value, &head); err != nil {
 			return nil, err
 		}
 
@@ -234,7 +235,7 @@ func (T *Chainblock) getLogs(ctx context.Context, remote jrpc.Handler, query blo
 				BlockHash common.Hash `json:"blockHash"`
 			}
 
-			if err := json.Unmarshal(logs, &head); err != nil {
+			if err := sonic.Unmarshal(logs, &head); err != nil {
 				return nil, err
 			}
 
@@ -272,7 +273,7 @@ func (T *Chainblock) getLogs(ctx context.Context, remote jrpc.Handler, query blo
 				BlockHash   common.Hash    `json:"blockHash"`
 				BlockNumber hexutil.Uint64 `json:"blockNumber"`
 			}
-			if err = json.Unmarshal(raw, &header); err != nil {
+			if err = sonic.Unmarshal(raw, &header); err != nil {
 				return nil, err
 			}
 

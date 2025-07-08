@@ -8,6 +8,7 @@ import (
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/contrib/extension/subscription"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/bytedance/sonic"
 )
 
 type Proxier struct {
@@ -82,7 +83,7 @@ func (T *Proxier) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 	if len(params) == 0 {
 		params = nil
 	}
-	var result json.RawMessage
+	var result sonic.NoCopyRawMessage
 	err := T.conn.Do(r.Context(), &result, r.Method, r.Params)
 
 	_ = w.Send(result, err)
