@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"golang.org/x/sync/singleflight"
 
 	"gfx.cafe/gfx/venn/dashboard/templates"
 	"gfx.cafe/gfx/venn/lib/callcenter"
@@ -22,6 +23,7 @@ type Handler struct {
 	chains    map[string]*config.Chain
 	clusters  *cluster.Clusters
 	headstore headstore.Store
+	sf        singleflight.Group
 }
 
 func NewHandler(chains map[string]*config.Chain, clusters *cluster.Clusters, headstore headstore.Store) *Handler {
@@ -137,44 +139,55 @@ func (h *Handler) handleRemotesUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) getChainInfos(r *http.Request) []templates.ChainInfo {
-	chains := make([]templates.ChainInfo, 0, len(h.chains))
-	
-	for _, chain := range h.chains {
-		headBlock, _ := h.headstore.Get(r.Context(), chain)
+	// Use singleflight to prevent duplicate work
+	result, _, _ := h.sf.Do("getChainInfos", func() (interface{}, error) {
+		chains := make([]templates.ChainInfo, 0, len(h.chains))
 		
-		// Count healthy remotes
-		remotes := h.getRemoteInfos(chain.Name, chain)
-		healthyCount := 0
-		for _, remote := range remotes {
-			if remote.Status == callcenter.HealthStatusHealthy {
-				healthyCount++
+		for _, chain := range h.chains {
+			headBlock, _ := h.headstore.Get(r.Context(), chain)
+			
+			// Count healthy remotes
+			remotes := h.getRemoteInfos(chain.Name, chain)
+			healthyCount := 0
+			for _, remote := range remotes {
+				if remote.Status == callcenter.HealthStatusHealthy {
+					healthyCount++
+				}
 			}
+			
+			chains = append(chains, templates.ChainInfo{
+				Name:           chain.Name,
+				ChainID:        uint64(chain.Id),
+				HeadBlock:      uint64(headBlock),
+				Status:         h.getChainStatus(chain.Name),
+				RemoteCount:    len(remotes),
+				HealthyCount:   healthyCount,
+				UnhealthyCount: len(remotes) - healthyCount,
+			})
 		}
 		
-		chains = append(chains, templates.ChainInfo{
-			Name:           chain.Name,
-			ChainID:        uint64(chain.Id),
-			HeadBlock:      uint64(headBlock),
-			Status:         h.getChainStatus(chain.Name),
-			RemoteCount:    len(remotes),
-			HealthyCount:   healthyCount,
-			UnhealthyCount: len(remotes) - healthyCount,
+		// Sort chains alphabetically by name
+		sort.Slice(chains, func(i, j int) bool {
+			return chains[i].Name < chains[j].Name
 		})
-	}
-	
-	// Sort chains alphabetically by name
-	sort.Slice(chains, func(i, j int) bool {
-		return chains[i].Name < chains[j].Name
+		
+		return chains, nil
 	})
 	
-	return chains
+	if result != nil {
+		return result.([]templates.ChainInfo)
+	}
+	return []templates.ChainInfo{}
 }
 
 func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templates.RemoteInfo {
-	remotes := []templates.RemoteInfo{}
-	
-	if middlewares, ok := h.clusters.GetMiddlewares()[chainName]; ok {
-		for remoteName, target := range middlewares {
+	// Use singleflight to prevent duplicate work
+	key := "getRemoteInfos:" + chainName
+	result, _, _ := h.sf.Do(key, func() (interface{}, error) {
+		remotes := []templates.RemoteInfo{}
+		
+		if middlewares, ok := h.clusters.GetMiddlewares()[chainName]; ok {
+			for remoteName, target := range middlewares {
 			// Find the config for this remote
 			var remoteConfig *config.Remote
 			for _, cfg := range chain.Remotes {
@@ -195,8 +208,7 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templa
 			var lastError string
 			priority := remoteConfig.Priority
 			maxBlockLookBack := int64(0)
-			var rateLimitTokens, rateLimitPerSec float64
-			var rateLimitBurst int
+			var requestsPerMin float64
 			
 			// Check if doctor exists and get health status
 			if target.Doctor != nil {
@@ -209,10 +221,10 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templa
 				}
 				
 				// Get latency stats for health checks
-				stats := target.Doctor.GetLatencyStats()
-				latencyAvg = stats.Average
-				latencyMin = stats.Min
-				latencyMax = stats.Max
+				avg, min, max, _ := target.Doctor.GetLatencyStats()
+				latencyAvg = avg
+				latencyMin = min
+				latencyMax = max
 				
 				// Get last error
 				lastError = target.Doctor.GetLastError()
@@ -226,11 +238,9 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templa
 				maxBlockLookBack = int64(remoteConfig.MaxBlockLookBack)
 			}
 			
-			// Check if RateLimiter is configured
-			if target.RateLimiter != nil {
-				rateLimitTokens = target.RateLimiter.GetTokens()
-				rateLimitPerSec = float64(target.RateLimiter.GetLimit())
-				rateLimitBurst = target.RateLimiter.GetBurst()
+			// Get requests per minute from collector
+			if target.Collector != nil {
+				requestsPerMin = target.Collector.GetRequestsPerMinute()
 			}
 			
 			remotes = append(remotes, templates.RemoteInfo{
@@ -244,22 +254,26 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain) []templa
 				LastError:    lastError,
 				Priority:     priority,
 				MaxBlockLookBack: maxBlockLookBack,
-				RateLimitTokens:  rateLimitTokens,
-				RateLimitPerSec:  rateLimitPerSec,
-				RateLimitBurst:   rateLimitBurst,
+				RequestsPerMin:   requestsPerMin,
 			})
 		}
 	}
 	
-	// Sort remotes by priority (lower is better), then by name
-	sort.Slice(remotes, func(i, j int) bool {
-		if remotes[i].Priority != remotes[j].Priority {
-			return remotes[i].Priority < remotes[j].Priority
-		}
-		return remotes[i].Name < remotes[j].Name
+		// Sort remotes by priority (lower is better), then by name
+		sort.Slice(remotes, func(i, j int) bool {
+			if remotes[i].Priority != remotes[j].Priority {
+				return remotes[i].Priority < remotes[j].Priority
+			}
+			return remotes[i].Name < remotes[j].Name
+		})
+		
+		return remotes, nil
 	})
 	
-	return remotes
+	if result != nil {
+		return result.([]templates.RemoteInfo)
+	}
+	return []templates.RemoteInfo{}
 }
 
 func (h *Handler) getChainStatus(chainName string) callcenter.HealthStatus {

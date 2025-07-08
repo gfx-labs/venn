@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
-	"gfx.cafe/gfx/venn/lib/latencyhist"
+	"github.com/asecurityteam/rolling"
 )
 
 type HealthStatus int
@@ -42,7 +42,7 @@ type Doctor struct {
 	health     HealthStatus
 	interval   time.Duration
 	latestBlock hexutil.Uint64
-	latencyHist *latencyhist.LatencyHist
+	latencyWindow *rolling.TimePolicy
 	lastError   string
 	mu         sync.Mutex
 }
@@ -54,7 +54,7 @@ func NewDoctor(log *slog.Logger, chainId int, minInterval, maxInterval time.Dura
 		maxInterval: maxInterval,
 		log:         log,
 		interval:    minInterval,
-		latencyHist: latencyhist.New(100), // Keep last 100 latency measurements
+		latencyWindow: rolling.NewTimePolicy(rolling.NewWindow(100), time.Minute), // Keep 1 minute of latency measurements
 	}
 }
 
@@ -122,7 +122,7 @@ func (T *Doctor) check() {
 	defer T.mu.Unlock()
 	
 	// Always record the health check latency
-	T.latencyHist.Add(checkLatency)
+	T.latencyWindow.Append(float64(checkLatency.Nanoseconds()))
 	
 	func() {
 		switch {
@@ -194,8 +194,34 @@ func (T *Doctor) GetLatestBlock() hexutil.Uint64 {
 }
 
 // GetLatencyStats returns the latency statistics for health checks
-func (T *Doctor) GetLatencyStats() latencyhist.Stats {
-	return T.latencyHist.GetStats()
+func (T *Doctor) GetLatencyStats() (avg, min, max time.Duration, count int) {
+	T.mu.Lock()
+	defer T.mu.Unlock()
+	
+	// Use Reduce to get stats from the window
+	count = int(T.latencyWindow.Reduce(func(w rolling.Window) float64 {
+		return rolling.Count(w)
+	}))
+	
+	if count == 0 {
+		return 0, 0, 0, 0
+	}
+	
+	// Calculate average using Sum/Count
+	sum := T.latencyWindow.Reduce(func(w rolling.Window) float64 {
+		return rolling.Sum(w)
+	})
+	avg = time.Duration(sum / float64(count))
+	
+	min = time.Duration(T.latencyWindow.Reduce(func(w rolling.Window) float64 {
+		return rolling.Min(w)
+	}))
+	
+	max = time.Duration(T.latencyWindow.Reduce(func(w rolling.Window) float64 {
+		return rolling.Max(w)
+	}))
+	
+	return
 }
 
 // GetLastError returns the last error from health checks

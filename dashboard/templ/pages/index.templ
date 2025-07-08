@@ -19,19 +19,17 @@ type ChainInfo struct {
 }
 
 type RemoteInfo struct {
-    Name          string
-    Status        callcenter.HealthStatus
-    LatestBlock   uint64
-    ResponseTime  string
-    LatencyAvg    time.Duration
-    LatencyMin    time.Duration
-    LatencyMax    time.Duration
-    LastError     string
-    Priority      int
+    Name             string
+    Status           callcenter.HealthStatus
+    LatestBlock      uint64
+    ResponseTime     string
+    LatencyAvg       time.Duration
+    LatencyMin       time.Duration
+    LatencyMax       time.Duration
+    LastError        string
+    Priority         int
     MaxBlockLookBack int64
-    RateLimitTokens  float64
-    RateLimitPerSec  float64
-    RateLimitBurst   int
+    RequestsPerMin   float64
 }
 
 templ Index(chains []ChainInfo) {
@@ -39,7 +37,7 @@ templ Index(chains []ChainInfo) {
 }
 
 templ IndexContent(chains []ChainInfo) {
-    <div class="container mx-auto px-4 py-8">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
         <h1 class="text-4xl font-bold mb-8 text-center">Venn Dashboard</h1>
         
         <div id="chains-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" 

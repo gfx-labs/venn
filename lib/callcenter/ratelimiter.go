@@ -24,7 +24,6 @@ func (T *Ratelimiter) Middleware(next jrpc.Handler) jrpc.Handler {
 			_ = w.Send(nil, ErrRatelimited)
 			return
 		}
-
 		next.ServeRPC(w, r)
 	})
 }

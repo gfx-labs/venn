@@ -11,6 +11,7 @@ require (
 	github.com/a-h/templ v0.3.906
 	github.com/alecthomas/kong v1.8.1
 	github.com/alicebob/miniredis/v2 v2.32.1
+	github.com/asecurityteam/rolling v2.0.4+incompatible
 	github.com/dranikpg/gtrs v0.6.0
 	github.com/ethereum/go-ethereum v1.14.12
 	github.com/go-chi/chi/v5 v5.1.0

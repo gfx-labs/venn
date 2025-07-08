@@ -15,7 +15,7 @@ templ ChainDetail(data ChainDetailData) {
 }
 
 templ ChainDetailContent(data ChainDetailData) {
-    <div class="container mx-auto px-4 py-8">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
         <div class="mb-8">
             <a href="/dashboard" class="text-gray-400 hover:text-white transition-colors mb-4 block">&larr; Back to Dashboard</a>
             <h1 class="text-4xl font-bold">{ data.Name }</h1>
@@ -92,11 +92,10 @@ templ RemoteCard(remote RemoteInfo) {
                             <p class="font-mono text-sm">{ fmt.Sprintf("%d blocks", remote.MaxBlockLookBack) }</p>
                         </div>
                     }
-                    if remote.RateLimitPerSec > 0 {
+                    if remote.RequestsPerMin > 0 {
                         <div class="text-right">
-                            <p class="text-xs text-gray-400">Rate Limit</p>
-                            <p class="font-mono text-sm">{ fmt.Sprintf("%.0f/%.0f", remote.RateLimitTokens, remote.RateLimitPerSec) }</p>
-                            <p class="text-xs text-gray-500">Burst: { fmt.Sprintf("%d", remote.RateLimitBurst) }</p>
+                            <p class="text-xs text-gray-400">Requests/min</p>
+                            <p class="font-mono text-sm">{ fmt.Sprintf("%.1f", remote.RequestsPerMin) }</p>
                         </div>
                     }
                     if remote.LatencyAvg > 0 {
