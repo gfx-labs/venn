@@ -12,16 +12,16 @@ import (
 
 // Collector collects prometheus stats for this particular remote.
 type Collector struct {
-	chain          string
-	name           string
-	requestWindow  *rolling.TimePolicy
+	chain         string
+	name          string
+	requestWindow *rolling.TimePolicy
 }
 
 func NewCollector(chain, name string) *Collector {
 	return &Collector{
-		chain:          chain,
-		name:           name,
-		requestWindow:  rolling.NewTimePolicy(rolling.NewWindow(600), time.Minute), // 1-minute window, up to 600 points
+		chain:         chain,
+		name:          name,
+		requestWindow: rolling.NewTimePolicy(rolling.NewWindow(600), 100*time.Millisecond), // 1-minute window: 600 buckets × 100ms each
 	}
 }
 

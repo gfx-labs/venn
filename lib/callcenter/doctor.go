@@ -54,7 +54,7 @@ func NewDoctor(log *slog.Logger, chainId int, minInterval, maxInterval time.Dura
 		maxInterval:   maxInterval,
 		log:           log,
 		interval:      minInterval,
-		latencyWindow: rolling.NewTimePolicy(rolling.NewWindow(256), time.Minute), // Keep 1 minute of latency measurements
+		latencyWindow: rolling.NewTimePolicy(rolling.NewWindow(180), 5*time.Second), // 15-minute window: 180 buckets × 5 seconds each
 	}
 }
 
@@ -90,7 +90,7 @@ func (T *Doctor) loop() {
 }
 
 func (T *Doctor) check() {
-	ctx, cn := context.WithTimeout(T.ctx, 5*time.Second)
+	ctx, cn := context.WithTimeout(T.ctx, 15*time.Second)
 	defer cn()
 
 	// Track health check latency
