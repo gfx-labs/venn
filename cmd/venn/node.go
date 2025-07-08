@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/svc/app/node"
@@ -15,11 +16,11 @@ import (
 	"gfx.cafe/gfx/venn/svc/node/middlewares/headreplacer"
 	"gfx.cafe/gfx/venn/svc/node/middlewares/promcollect"
 	"gfx.cafe/gfx/venn/svc/node/quarks/cluster"
-	"gfx.cafe/gfx/venn/svc/shared/services/prom"
-	"gfx.cafe/gfx/venn/svc/shared/services/redi"
 	"gfx.cafe/gfx/venn/svc/node/stores/headstores/redihead"
 	"gfx.cafe/gfx/venn/svc/node/stores/vennstores/chainblock"
 	"gfx.cafe/gfx/venn/svc/node/stores/vennstores/rediblock"
+	"gfx.cafe/gfx/venn/svc/shared/services/prom"
+	"gfx.cafe/gfx/venn/svc/shared/services/redi"
 	"gfx.cafe/open/jrpc/contrib/extension/subscription"
 	"gfx.cafe/util/go/fxplus"
 	"gfx.cafe/util/go/gotel"
@@ -35,6 +36,7 @@ func (o *StartNode) Run() error {
 	godotenv.Load()
 	subscription.SetServiceMethodSeparator("_")
 	fx.New(
+		fx.StartTimeout(15*time.Second), // Increase startup timeout
 		fxplus.WithLogger,
 		// utility services (universe)
 		fx.Provide(

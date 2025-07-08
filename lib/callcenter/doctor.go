@@ -69,6 +69,7 @@ func (T *Doctor) Middleware(next jrpc.Handler) jrpc.Handler {
 
 	go func() {
 		T.check()
+		T.firstCheck.Done()
 		T.loop()
 	}()
 
@@ -78,8 +79,6 @@ func (T *Doctor) Middleware(next jrpc.Handler) jrpc.Handler {
 func (T *Doctor) loop() {
 	defer T.timer.Stop()
 
-	T.check()
-	T.firstCheck.Done()
 	for {
 		select {
 		case <-T.ctx.Done():
@@ -91,7 +90,8 @@ func (T *Doctor) loop() {
 }
 
 func (T *Doctor) check() {
-	ctx, cn := context.WithTimeout(T.ctx, 15*time.Second)
+	// Use a shorter timeout for health checks to fail fast on rate-limited endpoints
+	ctx, cn := context.WithTimeout(T.ctx, 5*time.Second)
 	defer cn()
 
 	// Track health check latency
