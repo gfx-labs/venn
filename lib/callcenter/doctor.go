@@ -2,6 +2,7 @@ package callcenter
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
+	"gfx.cafe/gfx/venn/lib/latencyhist"
 )
 
 type HealthStatus int
@@ -40,6 +42,8 @@ type Doctor struct {
 	health     HealthStatus
 	interval   time.Duration
 	latestBlock hexutil.Uint64
+	latencyHist *latencyhist.LatencyHist
+	lastError   string
 	mu         sync.Mutex
 }
 
@@ -50,6 +54,7 @@ func NewDoctor(log *slog.Logger, chainId int, minInterval, maxInterval time.Dura
 		maxInterval: maxInterval,
 		log:         log,
 		interval:    minInterval,
+		latencyHist: latencyhist.New(100), // Keep last 100 latency measurements
 	}
 }
 
@@ -89,6 +94,9 @@ func (T *Doctor) check() {
 	ctx, cn := context.WithTimeout(T.ctx, 15*time.Second)
 	defer cn()
 
+	// Track health check latency
+	start := time.Now()
+
 	// First check eth_blockNumber to ensure the node is syncing
 	var blockNumber hexutil.Uint64
 	err := jrpcutil.Do(ctx, T.remote, &blockNumber, "eth_blockNumber", []any{})
@@ -96,6 +104,7 @@ func (T *Doctor) check() {
 		T.mu.Lock()
 		T.log.Error("remote failed health check", "method", "eth_blockNumber", "error", err)
 		T.health = HealthStatusUnhealthy
+		T.lastError = err.Error()
 		T.interval = T.minInterval
 		T.timer.Reset(T.interval)
 		T.mu.Unlock()
@@ -105,17 +114,29 @@ func (T *Doctor) check() {
 	// Then verify chain ID
 	var chainId hexutil.Uint64
 	err = jrpcutil.Do(ctx, T.remote, &chainId, "eth_chainId", []any{})
+	
+	// Record health check latency
+	checkLatency := time.Since(start)
+	
 	T.mu.Lock()
 	defer T.mu.Unlock()
+	
+	// Always record the health check latency
+	T.latencyHist.Add(checkLatency)
+	
 	func() {
 		switch {
 		case err != nil:
 			T.log.Error("remote failed health check", "method", "eth_chainId", "error", err)
+			T.lastError = err.Error()
 		case int(chainId) != T.chainId:
+			errMsg := fmt.Sprintf("chain ID mismatch: expected %d, got %d", T.chainId, int(chainId))
 			T.log.Error("remote failed health check", "expected id", T.chainId, "got", int(chainId))
+			T.lastError = errMsg
 		default:
 			T.health = HealthStatusHealthy
 			T.latestBlock = blockNumber
+			T.lastError = ""
 			T.interval = min(T.maxInterval, T.interval*2)
 			T.timer.Reset(T.interval)
 			return
@@ -170,6 +191,18 @@ func (T *Doctor) GetLatestBlock() hexutil.Uint64 {
 	T.mu.Lock()
 	defer T.mu.Unlock()
 	return T.latestBlock
+}
+
+// GetLatencyStats returns the latency statistics for health checks
+func (T *Doctor) GetLatencyStats() latencyhist.Stats {
+	return T.latencyHist.GetStats()
+}
+
+// GetLastError returns the last error from health checks
+func (T *Doctor) GetLastError() string {
+	T.mu.Lock()
+	defer T.mu.Unlock()
+	return T.lastError
 }
 
 var _ Remote = (*Doctor)(nil)

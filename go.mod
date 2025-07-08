@@ -8,6 +8,7 @@ require (
 	gfx.cafe/open/gotoprom v0.0.2
 	gfx.cafe/open/jrpc v0.7.0
 	gfx.cafe/util/go v1.12.1-0.20240717000937-c42e930797c2
+	github.com/a-h/templ v0.3.906
 	github.com/alecthomas/kong v1.8.1
 	github.com/alicebob/miniredis/v2 v2.32.1
 	github.com/dranikpg/gtrs v0.6.0
@@ -92,7 +93,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8 // indirect
-	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240701130421-f6361c86f094 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect

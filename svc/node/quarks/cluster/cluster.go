@@ -34,7 +34,7 @@ type RemoteTarget struct {
 	Doctor        *callcenter.Doctor
 	RateLimiter   *callcenter.Ratelimiter
 	Filterer      *callcenter.Filterer
-	BlockLookBack callcenter.Middleware // blockLookBack returns a Middleware interface
+	BlockLookBack *blockLookBack.BlockLookBack
 }
 
 type Clusters struct {
@@ -207,4 +207,9 @@ func (T *Clusters) Middleware(next jrpc.Handler) jrpc.Handler {
 		}
 		remote.ServeRPC(w, r)
 	})
+}
+
+// GetMiddlewares returns the middleware map for dashboard access
+func (T *Clusters) GetMiddlewares() map[string]map[string]*RemoteTarget {
+	return T.middlewares
 }

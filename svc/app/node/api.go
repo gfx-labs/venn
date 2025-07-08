@@ -28,6 +28,7 @@ import (
 
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/ratelimit"
+	"gfx.cafe/gfx/venn/lib/stores/headstore"
 	"gfx.cafe/gfx/venn/lib/subctx"
 	"gfx.cafe/gfx/venn/lib/util"
 	"gfx.cafe/gfx/venn/svc/node/atoms/cacher"
@@ -35,6 +36,7 @@ import (
 	"gfx.cafe/gfx/venn/svc/node/atoms/subcenter"
 	"gfx.cafe/gfx/venn/svc/node/quarks/cluster"
 
+	"gfx.cafe/gfx/venn/dashboard"
 	"gfx.cafe/gfx/venn/svc/node/middlewares/headreplacer"
 	"gfx.cafe/gfx/venn/svc/node/middlewares/promcollect"
 )
@@ -62,7 +64,8 @@ type Params struct {
 	Cacher *cacher.Cacher
 
 	// provides direct jsonrpc
-	Clusters *cluster.Clusters
+	Clusters  *cluster.Clusters
+	HeadStore headstore.Store
 
 	// provide subscriptions like eth_subscribe
 	Subcenter     *subcenter.Subcenter
@@ -200,7 +203,10 @@ func New(p Params) (r Result, err error) {
 		r.Mount("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("OK"))
 		}))
-		// TODO: eventually stats/dashboard will be here.
+		
+		// Mount dashboard
+		dashboardHandler := dashboard.NewHandler(p.Chains, p.Clusters, p.HeadStore)
+		dashboardHandler.Mount(r)
 	}
 	return
 }

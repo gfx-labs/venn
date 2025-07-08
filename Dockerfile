@@ -8,6 +8,7 @@ RUN go mod download
 COPY svc svc
 COPY lib lib
 COPY cmd cmd
+COPY dashboard dashboard
 
 RUN go build -o venn ./cmd/venn
 

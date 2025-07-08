@@ -1,0 +1,91 @@
+package templates
+
+import (
+    "fmt"
+    "strconv"
+    "time"
+    "gfx.cafe/gfx/venn/lib/callcenter"
+)
+
+type ChainInfo struct {
+    Name             string
+    ChainID          uint64
+    HeadBlock        uint64
+    Status           callcenter.HealthStatus
+    Remotes          []RemoteInfo
+    RemoteCount      int
+    HealthyCount     int
+    UnhealthyCount   int
+}
+
+type RemoteInfo struct {
+    Name          string
+    Status        callcenter.HealthStatus
+    LatestBlock   uint64
+    ResponseTime  string
+    LatencyAvg    time.Duration
+    LatencyMin    time.Duration
+    LatencyMax    time.Duration
+    LastError     string
+    Priority      int
+    MaxBlockLookBack int64
+}
+
+templ Index(chains []ChainInfo) {
+    @Layout(IndexContent(chains))
+}
+
+templ IndexContent(chains []ChainInfo) {
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold mb-8 text-center">Venn Dashboard</h1>
+        
+        <div id="chains-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" 
+             hx-get="/dashboard/chains" 
+             hx-trigger="every 5s">
+            for _, chain := range chains {
+                @ChainCard(chain)
+            }
+        </div>
+    </div>
+}
+
+templ ChainCard(chain ChainInfo) {
+    <a href={ templ.SafeURL(fmt.Sprintf("/dashboard/%s", chain.Name)) } class="block">
+        <div class="bg-gray-800 rounded-lg p-6 hover:shadow-xl transition-all border border-gray-700 hover:border-gray-600">
+            <div class="mb-4">
+                <h2 class="text-2xl font-semibold mb-2">{ chain.Name }</h2>
+                <p class="text-gray-400 text-sm">Chain ID: { strconv.FormatUint(chain.ChainID, 10) }</p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-gray-700/30 rounded p-3">
+                    <p class="text-gray-400 text-xs mb-1">Head Block</p>
+                    <p class="text-xl font-mono">{ fmt.Sprintf("%d", chain.HeadBlock) }</p>
+                </div>
+                <div class="bg-gray-700/30 rounded p-3">
+                    <p class="text-gray-400 text-xs mb-1">Status</p>
+                    @StatusBadge(chain.Status)
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-700 pt-4">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-400">Remotes:</span>
+                        <span class="ml-1">{ fmt.Sprintf("%d", chain.RemoteCount) }</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center">
+                            <div class="w-2 h-2 bg-green-400 rounded-full mr-1"></div>
+                            <span>{ fmt.Sprintf("%d", chain.HealthyCount) }</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
+                            <span>{ fmt.Sprintf("%d", chain.UnhealthyCount) }</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </a>
+}
