@@ -123,6 +123,7 @@ func (p *Election) RunWithLease(
 				continue
 			}
 			if errors.Is(lctx.Err(), context.Canceled) {
+				log.Error("leadership election ended with context canceled")
 				return
 			}
 			// the context was closed for some other reason. we return by default.
