@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gfx.cafe/open/jrpc"
 	"sync"
 	"time"
 
+	"gfx.cafe/open/jrpc"
+
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/bytedance/sonic"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/go-faster/jx"
 
@@ -101,6 +103,10 @@ func (T *Validator) Middleware(next jrpc.Handler) jrpc.Handler {
 					if bytes.Equal(res, []byte("null")) {
 						icept.Error = ErrHeadOld
 					}
+				case sonic.NoCopyRawMessage:
+					if bytes.Equal(res, []byte("null")) {
+						icept.Error = ErrHeadOld
+					}
 				case nil:
 					icept.Error = ErrHeadOld
 				}
@@ -140,6 +146,11 @@ func (T *Validator) Middleware(next jrpc.Handler) jrpc.Handler {
 						_ = w.Send(icept.Result, ErrHeadOld)
 						return
 					}
+				case sonic.NoCopyRawMessage:
+					if bytes.Equal(res, []byte("null")) {
+						_ = w.Send(icept.Result, ErrHeadOld)
+						return
+					}
 				case nil:
 					_ = w.Send(icept.Result, ErrHeadOld)
 					return
@@ -172,6 +183,48 @@ func isQueryingEthGetBlockByNumberWithLatest(params json.RawMessage) bool {
 	return bytes.Equal(block, []byte("latest"))
 }
 
+func parseRawBlock(raw []byte) (hexutil.Uint64, time.Time, error) {
+	if string(raw) == "null" {
+		return 0, time.Time{}, ErrHeadOld
+	}
+	
+	d := jx.DecodeBytes(raw)
+	obj, err := d.ObjIter()
+	if err != nil {
+		return 0, time.Time{}, err
+	}
+
+	var number hexutil.Uint64
+	var timestamp time.Time
+	for obj.Next() {
+		if bytes.Equal(obj.Key(), []byte("number")) {
+			v, err := d.Raw()
+			if err != nil {
+				return 0, time.Time{}, err
+			}
+			if err = sonic.Unmarshal(v, &number); err != nil {
+				return 0, time.Time{}, err
+			}
+		} else if bytes.Equal(obj.Key(), []byte("timestamp")) {
+			v, err := d.Raw()
+			if err != nil {
+				return 0, time.Time{}, err
+			}
+			var ts hexutil.Uint64
+			if err = sonic.Unmarshal(v, &ts); err != nil {
+				return 0, time.Time{}, err
+			}
+			timestamp = time.Unix(int64(ts), 0)
+		} else {
+			if err = d.Skip(); err != nil {
+				return 0, time.Time{}, err
+			}
+		}
+	}
+
+	return number, timestamp, nil
+}
+
 func extractBlockTimeAndTimestamp(block any) (hexutil.Uint64, time.Time, error) {
 	switch b := block.(type) {
 	case ethtypes.BlockHeader:
@@ -183,45 +236,11 @@ func extractBlockTimeAndTimestamp(block any) (hexutil.Uint64, time.Time, error) 
 	case *ethtypes.TruncatedBlockHeader:
 		return b.Number, time.Unix(int64(b.Timestamp), 0), nil
 	case json.RawMessage:
-		if string(b) == "null" {
-			return 0, time.Time{}, ErrHeadOld
-		}
-		d := jx.DecodeBytes(b)
-		obj, err := d.ObjIter()
-		if err != nil {
-			return 0, time.Time{}, err
-		}
-
-		var number hexutil.Uint64
-		var timestamp time.Time
-		for obj.Next() {
-			if bytes.Equal(obj.Key(), []byte("number")) {
-				v, err := d.Raw()
-				if err != nil {
-					return 0, time.Time{}, err
-				}
-				if err = json.Unmarshal(v, &number); err != nil {
-					return 0, time.Time{}, err
-				}
-			} else if bytes.Equal(obj.Key(), []byte("timestamp")) {
-				v, err := d.Raw()
-				if err != nil {
-					return 0, time.Time{}, err
-				}
-				var ts hexutil.Uint64
-				if err = json.Unmarshal(v, &ts); err != nil {
-					return 0, time.Time{}, err
-				}
-				timestamp = time.Unix(int64(ts), 0)
-			} else {
-				if err = d.Skip(); err != nil {
-					return 0, time.Time{}, err
-				}
-			}
-		}
-
-		return number, timestamp, nil
+		return parseRawBlock(b)
+	case sonic.NoCopyRawMessage:
+		return parseRawBlock(b)
 	default:
-		return 0, time.Time{}, errors.New("expected block")
+		// Add more context to the error to help debug
+		return 0, time.Time{}, fmt.Errorf("expected block, got type %T", block)
 	}
 }

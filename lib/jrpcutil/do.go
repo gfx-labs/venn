@@ -6,6 +6,7 @@ import (
 
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/bytedance/sonic"
 
 	"gfx.cafe/gfx/venn/lib/subctx"
 )
@@ -22,20 +23,24 @@ func Do(ctx context.Context, handler jrpc.Handler, result any, method string, ar
 	}
 
 	if res, ok := result.(*json.RawMessage); ok {
-		if iceptRes, ok := icept.Result.(json.RawMessage); ok {
+		switch iceptRes := icept.Result.(type) {
+		case json.RawMessage:
 			*res = iceptRes
+			return nil
+		case sonic.NoCopyRawMessage:
+			*res = json.RawMessage(iceptRes)
 			return nil
 		}
 
-		*res, err = json.Marshal(icept.Result)
+		*res, err = sonic.Marshal(icept.Result)
 		return err
 	}
 
 	var b json.RawMessage
-	b, err = json.Marshal(icept.Result)
+	b, err = sonic.Marshal(icept.Result)
 	if err != nil {
 		return err
 	}
 
-	return json.Unmarshal(b, result)
+	return sonic.Unmarshal(b, result)
 }
