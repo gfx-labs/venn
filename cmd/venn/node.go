@@ -3,7 +3,6 @@ package main
 import (
 	"log/slog"
 	"net/http"
-	"time"
 
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/svc/app/node"
@@ -36,7 +35,6 @@ func (o *StartNode) Run() error {
 	godotenv.Load()
 	subscription.SetServiceMethodSeparator("_")
 	fx.New(
-		fx.StartTimeout(15*time.Second), // Increase startup timeout
 		fxplus.WithLogger,
 		// utility services (universe)
 		fx.Provide(

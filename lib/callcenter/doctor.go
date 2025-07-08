@@ -38,22 +38,22 @@ type Doctor struct {
 
 	timer *time.Timer
 
-	firstCheck sync.WaitGroup
-	health     HealthStatus
-	interval   time.Duration
-	latestBlock hexutil.Uint64
+	firstCheck    sync.WaitGroup
+	health        HealthStatus
+	interval      time.Duration
+	latestBlock   hexutil.Uint64
 	latencyWindow *rolling.TimePolicy
-	lastError   string
-	mu         sync.Mutex
+	lastError     string
+	mu            sync.Mutex
 }
 
 func NewDoctor(log *slog.Logger, chainId int, minInterval, maxInterval time.Duration) *Doctor {
 	return &Doctor{
-		chainId:     chainId,
-		minInterval: minInterval,
-		maxInterval: maxInterval,
-		log:         log,
-		interval:    minInterval,
+		chainId:       chainId,
+		minInterval:   minInterval,
+		maxInterval:   maxInterval,
+		log:           log,
+		interval:      minInterval,
 		latencyWindow: rolling.NewTimePolicy(rolling.NewWindow(100), time.Minute), // Keep 1 minute of latency measurements
 	}
 }
@@ -90,7 +90,6 @@ func (T *Doctor) loop() {
 }
 
 func (T *Doctor) check() {
-	// Use a shorter timeout for health checks to fail fast on rate-limited endpoints
 	ctx, cn := context.WithTimeout(T.ctx, 5*time.Second)
 	defer cn()
 
@@ -114,16 +113,16 @@ func (T *Doctor) check() {
 	// Then verify chain ID
 	var chainId hexutil.Uint64
 	err = jrpcutil.Do(ctx, T.remote, &chainId, "eth_chainId", []any{})
-	
+
 	// Record health check latency
 	checkLatency := time.Since(start)
-	
+
 	T.mu.Lock()
 	defer T.mu.Unlock()
-	
+
 	// Always record the health check latency
 	T.latencyWindow.Append(float64(checkLatency.Nanoseconds()))
-	
+
 	func() {
 		switch {
 		case err != nil:
@@ -197,30 +196,30 @@ func (T *Doctor) GetLatestBlock() hexutil.Uint64 {
 func (T *Doctor) GetLatencyStats() (avg, min, max time.Duration, count int) {
 	T.mu.Lock()
 	defer T.mu.Unlock()
-	
+
 	// Use Reduce to get stats from the window
 	count = int(T.latencyWindow.Reduce(func(w rolling.Window) float64 {
 		return rolling.Count(w)
 	}))
-	
+
 	if count == 0 {
 		return 0, 0, 0, 0
 	}
-	
+
 	// Calculate average using Sum/Count
 	sum := T.latencyWindow.Reduce(func(w rolling.Window) float64 {
 		return rolling.Sum(w)
 	})
 	avg = time.Duration(sum / float64(count))
-	
+
 	min = time.Duration(T.latencyWindow.Reduce(func(w rolling.Window) float64 {
 		return rolling.Min(w)
 	}))
-	
+
 	max = time.Duration(T.latencyWindow.Reduce(func(w rolling.Window) float64 {
 		return rolling.Max(w)
 	}))
-	
+
 	return
 }
 
