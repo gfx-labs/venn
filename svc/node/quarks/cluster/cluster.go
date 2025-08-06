@@ -146,7 +146,7 @@ func New(params Params) (r Result, err error) {
 	params.Lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go func() {
-				ticker := time.NewTicker(30 * time.Second) // Update every 30 seconds
+				ticker := time.NewTicker(5 * time.Second) // Update every 5 seconds
 				defer ticker.Stop()
 				
 				for {
