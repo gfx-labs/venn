@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
+	"gfx.cafe/gfx/venn/svc/shared/services/prom"
 	"github.com/asecurityteam/rolling"
 )
 
@@ -30,6 +31,8 @@ type Doctor struct {
 	cn  func()
 
 	chainId     int
+	chainName   string
+	remoteName  string
 	minInterval time.Duration
 	maxInterval time.Duration
 	remote      Remote
@@ -46,9 +49,11 @@ type Doctor struct {
 	mu            sync.Mutex
 }
 
-func NewDoctor(log *slog.Logger, chainId int, minInterval, maxInterval time.Duration) *Doctor {
+func NewDoctor(log *slog.Logger, chainId int, chainName, remoteName string, minInterval, maxInterval time.Duration) *Doctor {
 	return &Doctor{
 		chainId:       chainId,
+		chainName:     chainName,
+		remoteName:    remoteName,
 		minInterval:   minInterval,
 		maxInterval:   maxInterval,
 		log:           log,
@@ -95,6 +100,12 @@ func (T *Doctor) check() {
 	// Track health check latency
 	start := time.Now()
 
+	// Create label for metrics
+	healthLabel := prom.RemoteHealthLabel{
+		Chain:  T.chainName,
+		Remote: T.remoteName,
+	}
+
 	// First check eth_blockNumber to ensure the node is syncing
 	var blockNumber hexutil.Uint64
 	err := jrpcutil.Do(ctx, T.remote, &blockNumber, "eth_blockNumber", []any{})
@@ -106,6 +117,12 @@ func (T *Doctor) check() {
 		T.interval = T.minInterval
 		T.timer.Reset(T.interval)
 		T.mu.Unlock()
+		
+		// Update metrics for failure
+		checkLatency := time.Since(start)
+		prom.RemoteHealth.CheckLatency(healthLabel).Observe(float64(checkLatency.Milliseconds()))
+		prom.RemoteHealth.CheckFailures(healthLabel).Inc()
+		prom.RemoteHealth.Status(healthLabel).Set(-1) // Unhealthy
 		return
 	}
 
@@ -121,6 +138,7 @@ func (T *Doctor) check() {
 
 	// Always record the health check latency
 	T.latencyWindow.Append(float64(checkLatency.Nanoseconds()))
+	prom.RemoteHealth.CheckLatency(healthLabel).Observe(float64(checkLatency.Milliseconds()))
 
 	func() {
 		switch {
@@ -136,11 +154,19 @@ func (T *Doctor) check() {
 			T.lastError = ""
 			T.interval = min(T.maxInterval, T.interval*2)
 			T.timer.Reset(T.interval)
+			
+			// Update metrics for success
+			prom.RemoteHealth.Status(healthLabel).Set(1) // Healthy
+			prom.RemoteHealth.LastSuccessTimestamp(healthLabel).Set(float64(time.Now().Unix()))
 			return
 		}
 		T.health = HealthStatusUnhealthy
 		T.interval = T.minInterval
 		T.timer.Reset(T.interval)
+		
+		// Update metrics for failure
+		prom.RemoteHealth.CheckFailures(healthLabel).Inc()
+		prom.RemoteHealth.Status(healthLabel).Set(0) // Unhealthy
 	}()
 }
 
@@ -219,6 +245,23 @@ func (T *Doctor) GetLastError() string {
 	T.mu.Lock()
 	defer T.mu.Unlock()
 	return T.lastError
+}
+
+// GetHealthStatus returns the current health status
+func (T *Doctor) GetHealthStatus() HealthStatus {
+	T.mu.Lock()
+	defer T.mu.Unlock()
+	return T.health
+}
+
+// GetChainName returns the chain name for this doctor
+func (T *Doctor) GetChainName() string {
+	return T.chainName
+}
+
+// GetRemoteName returns the remote name for this doctor
+func (T *Doctor) GetRemoteName() string {
+	return T.remoteName
 }
 
 var _ Remote = (*Doctor)(nil)

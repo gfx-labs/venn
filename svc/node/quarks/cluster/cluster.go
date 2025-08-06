@@ -9,6 +9,7 @@ import (
 
 	"gfx.cafe/gfx/venn/lib/stores/headstore"
 	"gfx.cafe/gfx/venn/lib/subctx"
+	"gfx.cafe/gfx/venn/svc/shared/services/prom"
 	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 
@@ -102,6 +103,8 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 		Doctor: callcenter.NewDoctor(
 			log.With("remote", cfg.Name, "chain", chain.Name),
 			chain.Id,
+			chain.Name,
+			cfg.Name,
 			cfg.HealthCheckIntervalMin.Duration,
 			cfg.HealthCheckIntervalMax.Duration,
 		),
@@ -138,6 +141,27 @@ func New(params Params) (r Result, err error) {
 		Remotes:     make(map[string]*callcenter.Cluster),
 		middlewares: make(map[string]map[string]*RemoteTarget),
 	}
+	
+	// Start a background goroutine to update chain health metrics periodically
+	params.Lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			go func() {
+				ticker := time.NewTicker(30 * time.Second) // Update every 30 seconds
+				defer ticker.Stop()
+				
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-ticker.C:
+						r.Clusters.UpdateChainHealthMetrics()
+					}
+				}
+			}()
+			return nil
+		},
+	})
+	
 	for _, chain := range params.Chains {
 		cluster := callcenter.NewCluster()
 		r.Clusters.Remotes[chain.Name] = cluster
@@ -212,4 +236,50 @@ func (T *Clusters) Middleware(next jrpc.Handler) jrpc.Handler {
 // GetMiddlewares returns the middleware map for dashboard access
 func (T *Clusters) GetMiddlewares() map[string]map[string]*RemoteTarget {
 	return T.middlewares
+}
+
+// UpdateChainHealthMetrics updates chain-level health metrics by examining all doctors for each chain
+func (T *Clusters) UpdateChainHealthMetrics() {
+	for chainName, remotes := range T.middlewares {
+		healthyCount := 0
+		totalCount := len(remotes)
+		totalRequests := 0.0
+		totalSuccesses := 0.0
+		
+		for _, remote := range remotes {
+			if remote.Doctor.GetHealthStatus() == callcenter.HealthStatusHealthy {
+				healthyCount++
+			}
+			
+			// Aggregate success rate data
+			requests := remote.Collector.GetRequestsPerMinute()
+			successRate := remote.Collector.GetSuccessRate()
+			totalRequests += requests
+			totalSuccesses += (requests * successRate / 100.0)
+		}
+		
+		chainLabel := prom.ChainHealthLabel{
+			Chain: chainName,
+		}
+		
+		// Update chain health metrics
+		prom.ChainHealth.HealthyRemoteCount(chainLabel).Set(float64(healthyCount))
+		prom.ChainHealth.TotalRemoteCount(chainLabel).Set(float64(totalCount))
+		
+		// Calculate availability percentage
+		var availabilityPercent float64
+		if totalCount > 0 {
+			availabilityPercent = float64(healthyCount) / float64(totalCount) * 100
+		}
+		prom.ChainHealth.AvailabilityPercent(chainLabel).Set(availabilityPercent)
+		
+		// Calculate overall request success rate
+		var requestSuccessRate float64
+		if totalRequests > 0 {
+			requestSuccessRate = (totalSuccesses / totalRequests) * 100
+		} else {
+			requestSuccessRate = 100.0 // No requests means 100% success rate
+		}
+		prom.ChainHealth.RequestSuccessRate(chainLabel).Set(requestSuccessRate)
+	}
 }
