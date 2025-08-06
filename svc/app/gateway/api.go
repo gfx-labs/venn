@@ -124,7 +124,7 @@ func New(p Params) (r Result, err error) {
 	}
 	// Method validation middleware
 	mux.Use(util.MethodValidationMiddleware())
-	
+
 	// Whitelist validation
 	mux.Use(func(next jrpc.Handler) jrpc.Handler {
 		return jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {

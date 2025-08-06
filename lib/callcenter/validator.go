@@ -187,7 +187,7 @@ func parseRawBlock(raw []byte) (hexutil.Uint64, time.Time, error) {
 	if string(raw) == "null" {
 		return 0, time.Time{}, ErrHeadOld
 	}
-	
+
 	d := jx.DecodeBytes(raw)
 	obj, err := d.ObjIter()
 	if err != nil {

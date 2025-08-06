@@ -203,7 +203,7 @@ func New(p Params) (r Result, err error) {
 		r.Mount("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("OK"))
 		}))
-		
+
 		// Mount dashboard
 		dashboardHandler := dashboard.NewHandler(p.Chains, p.Clusters, p.HeadStore)
 		dashboardHandler.Mount(r)
