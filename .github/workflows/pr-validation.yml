@@ -1,0 +1,88 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+    types: [opened, synchronize, reopened]
+
+env:
+  GO_VERSION: '1.23'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Verify dependencies
+      run: go mod verify
+
+    - name: Check Go formatting
+      run: |
+        if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then
+          echo "The following files need formatting:"
+          gofmt -l .
+          echo "Run 'gofmt -w .' to fix formatting issues"
+          exit 1
+        fi
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Build application
+      run: go build -v ./cmd/venn
+
+    - name: Run unit tests
+      run: go test -v ./lib/... ./svc/...
+
+    - name: Run tests with race detection
+      run: go test -race -short ./lib/... ./svc/...
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request'
+    continue-on-error: true  # Integration tests can be flaky due to external dependencies
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Enable Corepack
+      run: corepack enable
+
+    - name: Install integration test dependencies
+      working-directory: _integration
+      run: yarn install --frozen-lockfile
+
+    - name: Run integration tests
+      working-directory: _integration
+      run: yarn test
