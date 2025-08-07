@@ -117,7 +117,7 @@ func (T *Doctor) check() {
 		T.interval = T.minInterval
 		T.timer.Reset(T.interval)
 		T.mu.Unlock()
-		
+
 		// Update metrics for failure
 		checkLatency := time.Since(start)
 		prom.RemoteHealth.CheckLatency(healthLabel).Observe(float64(checkLatency.Milliseconds()))
@@ -154,7 +154,7 @@ func (T *Doctor) check() {
 			T.lastError = ""
 			T.interval = min(T.maxInterval, T.interval*2)
 			T.timer.Reset(T.interval)
-			
+
 			// Update metrics for success
 			prom.RemoteHealth.Status(healthLabel).Set(1) // Healthy
 			prom.RemoteHealth.LastSuccessTimestamp(healthLabel).Set(float64(time.Now().Unix()))
@@ -163,7 +163,7 @@ func (T *Doctor) check() {
 		T.health = HealthStatusUnhealthy
 		T.interval = T.minInterval
 		T.timer.Reset(T.interval)
-		
+
 		// Update metrics for failure
 		prom.RemoteHealth.CheckFailures(healthLabel).Inc()
 		prom.RemoteHealth.Status(healthLabel).Set(0) // Unhealthy

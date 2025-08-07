@@ -37,7 +37,7 @@ func TestRemoteHealthMetrics(t *testing.T) {
 	// Reset metrics for this test
 	prom.RemoteHealth.Status(healthLabel).Set(0)
 	prom.RemoteHealth.CheckFailures(healthLabel).Add(0) // Reset counter
-	
+
 	// Set health status to healthy
 	prom.RemoteHealth.Status(healthLabel).Set(1)
 
@@ -109,7 +109,7 @@ func TestChainHealthMetrics(t *testing.T) {
 	// Test edge cases
 	prom.ChainHealth.HealthyRemoteCount(chainLabel).Set(0)
 	prom.ChainHealth.AvailabilityPercent(chainLabel).Set(0)
-	
+
 	if value := testutil.ToFloat64(prom.ChainHealth.HealthyRemoteCount(chainLabel)); value != 0 {
 		t.Errorf("Expected healthy remote count to be 0, got %f", value)
 	}
@@ -142,7 +142,7 @@ func TestRemoteMetrics(t *testing.T) {
 	// Test remote latency metrics
 	remoteLabel := prom.RemoteLabel{
 		Chain:   "ethereum",
-		Remote:  "alchemy", 
+		Remote:  "alchemy",
 		Method:  "eth_getBalance",
 		Success: true,
 	}
@@ -156,7 +156,7 @@ func TestRemoteMetrics(t *testing.T) {
 	failedLabel := prom.RemoteLabel{
 		Chain:   "ethereum",
 		Remote:  "alchemy",
-		Method:  "eth_getBalance", 
+		Method:  "eth_getBalance",
 		Success: false,
 	}
 	prom.Remotes.Latency(failedLabel).Observe(5000) // Failed requests often take longer
@@ -180,7 +180,7 @@ func TestGatewayMetrics(t *testing.T) {
 	// Test gateway metrics
 	gatewayLabel := prom.GatewayRequestLabel{
 		Endpoint: "api",
-		Target:   "ethereum", 
+		Target:   "ethereum",
 		Method:   "eth_getBalance",
 		Success:  true,
 	}
@@ -242,7 +242,7 @@ func TestMetricsIntegration(t *testing.T) {
 	// Verify we can find our key metric families
 	expectedMetrics := []string{
 		"venn_remote_health_status",
-		"venn_chain_healthy_remote_count", 
+		"venn_chain_healthy_remote_count",
 		"venn_remote_latency_ms",
 		"venn_request_latency_ms",
 		"venn_gateway_request_latency_ms",

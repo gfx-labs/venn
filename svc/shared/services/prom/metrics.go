@@ -79,8 +79,8 @@ type ChainHealthLabel struct {
 }
 
 var ChainHealth struct {
-	AvailabilityPercent func(label ChainHealthLabel) prometheus.Gauge   `name:"chain_availability_percent" help:"Percentage of successful requests to the chain"`
-	HealthyRemoteCount  func(label ChainHealthLabel) prometheus.Gauge   `name:"chain_healthy_remote_count" help:"Number of healthy remotes for the chain"`
-	TotalRemoteCount    func(label ChainHealthLabel) prometheus.Gauge   `name:"chain_total_remote_count" help:"Total number of configured remotes for the chain"`
-	RequestSuccessRate  func(label ChainHealthLabel) prometheus.Gauge   `name:"chain_request_success_rate" help:"Success rate of requests to the chain (rolling average)"`
+	AvailabilityPercent func(label ChainHealthLabel) prometheus.Gauge `name:"chain_availability_percent" help:"Percentage of successful requests to the chain"`
+	HealthyRemoteCount  func(label ChainHealthLabel) prometheus.Gauge `name:"chain_healthy_remote_count" help:"Number of healthy remotes for the chain"`
+	TotalRemoteCount    func(label ChainHealthLabel) prometheus.Gauge `name:"chain_total_remote_count" help:"Total number of configured remotes for the chain"`
+	RequestSuccessRate  func(label ChainHealthLabel) prometheus.Gauge `name:"chain_request_success_rate" help:"Success rate of requests to the chain (rolling average)"`
 }

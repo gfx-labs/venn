@@ -40,7 +40,7 @@ func (T *Collector) Middleware(next jrpc.Handler) jrpc.Handler {
 			dur := time.Since(start)
 
 			success := icept.Error == nil
-			
+
 			// Track success/failure
 			if success {
 				T.successWindow.Append(1.0)
@@ -75,15 +75,15 @@ func (T *Collector) GetSuccessRate() float64 {
 	totalRequests := T.requestWindow.Reduce(func(w rolling.Window) float64 {
 		return rolling.Count(w)
 	})
-	
+
 	if totalRequests == 0 {
 		return 100.0 // No requests means 100% success rate
 	}
-	
+
 	totalSuccesses := T.successWindow.Reduce(func(w rolling.Window) float64 {
 		return rolling.Sum(w)
 	})
-	
+
 	return (totalSuccesses / totalRequests) * 100.0
 }
 

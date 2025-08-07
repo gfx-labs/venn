@@ -141,14 +141,14 @@ func New(params Params) (r Result, err error) {
 		Remotes:     make(map[string]*callcenter.Cluster),
 		middlewares: make(map[string]map[string]*RemoteTarget),
 	}
-	
+
 	// Start a background goroutine to update chain health metrics periodically
 	params.Lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go func() {
 				ticker := time.NewTicker(5 * time.Second) // Update every 5 seconds
 				defer ticker.Stop()
-				
+
 				for {
 					select {
 					case <-ctx.Done():
@@ -161,7 +161,7 @@ func New(params Params) (r Result, err error) {
 			return nil
 		},
 	})
-	
+
 	for _, chain := range params.Chains {
 		cluster := callcenter.NewCluster()
 		r.Clusters.Remotes[chain.Name] = cluster
@@ -245,34 +245,34 @@ func (T *Clusters) UpdateChainHealthMetrics() {
 		totalCount := len(remotes)
 		totalRequests := 0.0
 		totalSuccesses := 0.0
-		
+
 		for _, remote := range remotes {
 			if remote.Doctor.GetHealthStatus() == callcenter.HealthStatusHealthy {
 				healthyCount++
 			}
-			
+
 			// Aggregate success rate data
 			requests := remote.Collector.GetRequestsPerMinute()
 			successRate := remote.Collector.GetSuccessRate()
 			totalRequests += requests
 			totalSuccesses += (requests * successRate / 100.0)
 		}
-		
+
 		chainLabel := prom.ChainHealthLabel{
 			Chain: chainName,
 		}
-		
+
 		// Update chain health metrics
 		prom.ChainHealth.HealthyRemoteCount(chainLabel).Set(float64(healthyCount))
 		prom.ChainHealth.TotalRemoteCount(chainLabel).Set(float64(totalCount))
-		
+
 		// Calculate availability percentage
 		var availabilityPercent float64
 		if totalCount > 0 {
 			availabilityPercent = float64(healthyCount) / float64(totalCount) * 100
 		}
 		prom.ChainHealth.AvailabilityPercent(chainLabel).Set(availabilityPercent)
-		
+
 		// Calculate overall request success rate
 		var requestSuccessRate float64
 		if totalRequests > 0 {
