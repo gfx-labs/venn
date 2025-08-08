@@ -128,6 +128,12 @@ func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 				v.Solana.HeadMethod = "getBlockHeight"
 			}
 		}
+		// default near finality
+		if v.Protocol == "near" && v.Near != nil {
+			if v.Near.Finality == "" {
+				v.Near.Finality = "final"
+			}
+		}
 		v.ParsedStalk, err = util.CoaFunc(func(v *bool) (bool, error) {
 			return *v, nil
 		}, v.Stalk, true)

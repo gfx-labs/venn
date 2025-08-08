@@ -140,6 +140,31 @@ func (T *Stalker) tick(ctx context.Context, chain *config.Chain, cluster *callce
 			return blockTime, err
 		}
 		return blockTime, nil
+	case "near":
+		// NEAR: use block with finality to get header.height
+		finality := "final"
+		if chain.Near != nil && chain.Near.Finality != "" {
+			finality = chain.Near.Finality
+		}
+		var block struct {
+			Result struct {
+				Header struct {
+					Height uint64 `json:"height"`
+				} `json:"header"`
+			} `json:"result"`
+		}
+		// NEAR expects named params object
+		if err := jrpcutil.Do(ctx, cluster, &block, "block", map[string]string{"finality": finality}); err != nil {
+			if util.IsTimeoutError(err) {
+				return max(blockTime, 2*time.Second), fmt.Errorf("get near head: %w", err)
+			}
+			return blockTime, fmt.Errorf("get near head: %w", err)
+		}
+		_, err := T.headstore.Put(ctx, chain, hexutil.Uint64(block.Result.Header.Height))
+		if err != nil {
+			return blockTime, err
+		}
+		return blockTime, nil
 	default:
 		// EVM path: existing logic
 		if err := jrpcutil.Do(ctx, cluster, &block, "eth_getBlockByNumber", []any{"latest", false}); err != nil {

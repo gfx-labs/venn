@@ -87,6 +87,42 @@ the project uses go 1.23+ and can be built with:
 go build ./cmd/venn
 ```
 
+## NEAR (non‑EVM) support
+
+Enable per chain with `protocol: near`.
+
+Example (see `venn.yml.sample`):
+
+```yaml
+chains:
+  - name: near
+    id: 0
+    protocol: near
+    block_time_seconds: 1.2
+    near:
+      network_id: mainnet
+      finality: final
+      genesis_hash: ""
+    remotes:
+      - name: near-main
+        url: https://rpc.mainnet.near.org
+        priority: 100
+```
+
+Quick curl:
+
+```bash
+curl http://localhost:8545/near \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "block",
+    "params": {"finality":"final"}
+  }'
+```
+
 run tests with:
 
 ```bash

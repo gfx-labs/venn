@@ -32,6 +32,7 @@ import (
 // protocol-specific doctor probes
 type evmDoctorProbe struct{}
 type solanaDoctorProbe struct{ chain *config.Chain }
+type nearDoctorProbe struct{ chain *config.Chain }
 
 func (evmDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, chainId int) (uint64, time.Time, error) {
 	// EVM: require blockNumber to succeed
@@ -67,6 +68,39 @@ func (p solanaDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, 
 		}
 	}
 	return latest, time.Now(), nil
+}
+
+func (p nearDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, _ int) (uint64, time.Time, error) {
+	// NEAR liveness via block with finality
+	finality := "final"
+	if p.chain != nil && p.chain.Near != nil && p.chain.Near.Finality != "" {
+		finality = p.chain.Near.Finality
+	}
+	var block struct {
+		Result struct {
+			Header struct {
+				Height uint64 `json:"height"`
+			} `json:"header"`
+			ChainID string `json:"chain_id,omitempty"`
+		} `json:"result"`
+	}
+	// NEAR expects named params as an object, not wrapped in an array
+	if err := jrpcutil.Do(ctx, remote, &block, "block", map[string]string{"finality": finality}); err != nil {
+		return 0, time.Now(), err
+	}
+	// Identity check (optional)
+	if p.chain != nil && p.chain.Near != nil && p.chain.Near.GenesisHash != "" {
+		var status struct {
+			ChainID     string `json:"chain_id"`
+			GenesisHash string `json:"genesis_hash"`
+		}
+		if err := jrpcutil.Do(ctx, remote, &status, "status", []any{}); err == nil {
+			if status.GenesisHash != "" && status.GenesisHash != p.chain.Near.GenesisHash {
+				return block.Result.Header.Height, time.Now(), fmt.Errorf("genesis mismatch: expected %s got %s", p.chain.Near.GenesisHash, status.GenesisHash)
+			}
+		}
+	}
+	return block.Result.Header.Height, time.Now(), nil
 }
 
 // RemoteTarget holds all middleware instances for a specific remote
@@ -156,6 +190,8 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 				switch chain.Protocol {
 				case "solana":
 					return solanaDoctorProbe{chain: chain}
+				case "near":
+					return nearDoctorProbe{chain: chain}
 				default:
 					return evmDoctorProbe{}
 				}

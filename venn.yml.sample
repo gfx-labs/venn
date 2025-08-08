@@ -1,6 +1,6 @@
 bind: localhost:8545
 logging:
-  level: debug
+  log_level: debug
 redis:
   namespace: venn-dev
   uri: embedded
@@ -41,6 +41,32 @@ chains:
     ratelimit:
       events_per_second: 200
       burst: 400
+
+  # NEAR example
+- block_time_seconds: 1.2
+  id: 0
+  name: near_testnet
+  protocol: near
+  near:
+    network_id: mainnet
+    finality: final
+    genesis_hash: "" # optional
+  remotes:
+  - name: near_fastnear
+    url: https://test.rpc.fastnear.com
+    priority: 100
+    health_check_interval_min: 10s
+    health_check_interval_max: 30s
+  - name: near_drpc
+    url: https://near-testnet.drpc.org
+    priority: 100
+    health_check_interval_min: 10s
+    health_check_interval_max: 30s
+  - name: near_web4
+    url: https://rpc.web4.testnet.page/account/testnet
+    priority: 100
+    health_check_interval_min: 10s
+    health_check_interval_max: 30s
 
 election: {}
 filters:

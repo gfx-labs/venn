@@ -115,6 +115,7 @@ type Chain struct {
 	// Protocol indicates which RPC protocol the chain speaks. Defaults to "evm".
 	Protocol string        `json:"protocol,omitempty"`
 	Solana   *SolanaConfig `json:"solana,omitempty"`
+	Near     *NearConfig   `json:"near,omitempty"`
 }
 
 // SolanaConfig holds optional Solana-specific settings
@@ -125,6 +126,16 @@ type SolanaConfig struct {
 	GenesisHash string `json:"genesis_hash,omitempty"`
 	// HeadMethod chooses how we derive head: "getBlockHeight" (default) or "getSlot"
 	HeadMethod string `json:"head_method,omitempty"`
+}
+
+// NearConfig holds optional NEAR-specific settings
+type NearConfig struct {
+	// NetworkID (e.g., mainnet, testnet)
+	NetworkID string `json:"network_id,omitempty"`
+	// Expected genesis hash for identity checks
+	GenesisHash string `json:"genesis_hash,omitempty"`
+	// Finality for head queries: "final" (default) or "optimistic"
+	Finality string `json:"finality,omitempty"`
 }
 
 type HeadOracles struct {
