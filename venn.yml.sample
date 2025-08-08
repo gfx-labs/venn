@@ -1,5 +1,6 @@
 bind: localhost:8545
-logging: {}
+logging:
+  level: debug
 redis:
   namespace: venn-dev
   uri: embedded
@@ -21,6 +22,26 @@ chains:
     - geth
     name: drpc
     url: https://polygon.drpc.org
+  
+  # Solana (HTTP-only) example
+- block_time_seconds: 0.4
+  id: 101
+  name: solana
+  protocol: solana
+  solana:
+    network: mainnet-beta
+    genesis_hash: 5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp
+    head_method: getBlockHeight # or getSlot
+  remotes:
+  - name: solana-main
+    url: https://api.mainnet-beta.solana.com
+    priority: 100
+    health_check_interval_min: 10s
+    health_check_interval_max: 30s
+    ratelimit:
+      events_per_second: 200
+      burst: 400
+
 election: {}
 filters:
 - methods:

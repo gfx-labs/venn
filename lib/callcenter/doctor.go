@@ -47,9 +47,32 @@ type Doctor struct {
 	latencyWindow *rolling.TimePolicy
 	lastError     string
 	mu            sync.Mutex
+
+	probe DoctorProbe
+
+	lastHead    uint64
+	lastChecked time.Time
 }
 
-func NewDoctor(log *slog.Logger, chainId int, chainName, remoteName string, minInterval, maxInterval time.Duration) *Doctor {
+// DoctorProbe abstracts protocol-specific health checks
+type DoctorProbe interface {
+	// Check returns latest observed head (if applicable), the check timestamp, and error if unhealthy
+	Check(ctx context.Context, remote Remote, chainId int) (latest uint64, checkedAt time.Time, err error)
+}
+
+// evmDefaultProbe keeps backward-compatible behavior when no probe is supplied
+type evmDefaultProbe struct{}
+
+func (evmDefaultProbe) Check(ctx context.Context, remote Remote, _ int) (uint64, time.Time, error) {
+	var head hexutil.Uint64
+	err := jrpcutil.Do(ctx, remote, &head, "eth_blockNumber", []any{})
+	return uint64(head), time.Now(), err
+}
+
+func NewDoctorWithProbe(log *slog.Logger, chainId int, chainName, remoteName string, minInterval, maxInterval time.Duration, probe DoctorProbe) *Doctor {
+	if probe == nil {
+		probe = evmDefaultProbe{}
+	}
 	return &Doctor{
 		chainId:       chainId,
 		chainName:     chainName,
@@ -58,8 +81,14 @@ func NewDoctor(log *slog.Logger, chainId int, chainName, remoteName string, minI
 		maxInterval:   maxInterval,
 		log:           log,
 		interval:      minInterval,
-		latencyWindow: rolling.NewTimePolicy(rolling.NewWindow(180), 5*time.Second), // 15-minute window: 180 buckets × 5 seconds each
+		latencyWindow: rolling.NewTimePolicy(rolling.NewWindow(180), 5*time.Second),
+		probe:         probe,
 	}
+}
+
+// NewDoctor preserves the original constructor signature and defaults to EVM behavior
+func NewDoctor(log *slog.Logger, chainId int, chainName, remoteName string, minInterval, maxInterval time.Duration) *Doctor {
+	return NewDoctorWithProbe(log, chainId, chainName, remoteName, minInterval, maxInterval, nil)
 }
 
 func (T *Doctor) Middleware(next jrpc.Handler) jrpc.Handler {
@@ -106,12 +135,11 @@ func (T *Doctor) check() {
 		Remote: T.remoteName,
 	}
 
-	// First check eth_blockNumber to ensure the node is syncing
-	var blockNumber hexutil.Uint64
-	err := jrpcutil.Do(ctx, T.remote, &blockNumber, "eth_blockNumber", []any{})
+	// Delegate primary health logic to the protocol-specific probe
+	latest, checkedAt, err := T.probe.Check(ctx, T.remote, T.chainId)
 	if err != nil {
 		T.mu.Lock()
-		T.log.Error("remote failed health check", "method", "eth_blockNumber", "error", err)
+		T.log.Error("remote failed health check", "error", err)
 		T.health = HealthStatusUnhealthy
 		T.lastError = err.Error()
 		T.interval = T.minInterval
@@ -126,48 +154,73 @@ func (T *Doctor) check() {
 		return
 	}
 
-	// Then verify chain ID
-	var chainId hexutil.Uint64
-	err = jrpcutil.Do(ctx, T.remote, &chainId, "eth_chainId", []any{})
-
-	// Record health check latency
+	// Record health check latency and store last head/check
 	checkLatency := time.Since(start)
+
+	// Determine if we should perform EVM chainId verification
+	_, isEvmProbe := T.probe.(evmDefaultProbe)
+	if !isEvmProbe {
+		// Non-EVM: mark healthy immediately
+		T.mu.Lock()
+		T.latencyWindow.Append(float64(checkLatency.Nanoseconds()))
+		prom.RemoteHealth.CheckLatency(healthLabel).Observe(float64(checkLatency.Milliseconds()))
+		if latest > 0 {
+			T.lastHead = latest
+		}
+		if !checkedAt.IsZero() {
+			T.lastChecked = checkedAt
+		}
+		T.health = HealthStatusHealthy
+		T.lastError = ""
+		T.interval = min(T.maxInterval, T.interval*2)
+		T.timer.Reset(T.interval)
+		prom.RemoteHealth.Status(healthLabel).Set(1)
+		prom.RemoteHealth.LastSuccessTimestamp(healthLabel).Set(float64(time.Now().Unix()))
+		T.mu.Unlock()
+		return
+	}
+
+	// EVM: verify chain id matches
+	var chainId hexutil.Uint64
+	chainIdErr := jrpcutil.Do(ctx, T.remote, &chainId, "eth_chainId", []any{})
 
 	T.mu.Lock()
 	defer T.mu.Unlock()
-
-	// Always record the health check latency
 	T.latencyWindow.Append(float64(checkLatency.Nanoseconds()))
 	prom.RemoteHealth.CheckLatency(healthLabel).Observe(float64(checkLatency.Milliseconds()))
+	if latest > 0 {
+		T.lastHead = latest
+	}
+	if !checkedAt.IsZero() {
+		T.lastChecked = checkedAt
+	}
 
-	func() {
-		switch {
-		case err != nil:
-			T.log.Error("remote failed health check", "method", "eth_chainId", "error", err)
-			T.lastError = err.Error()
-		case int(chainId) != T.chainId:
-			errMsg := fmt.Sprintf("chain ID mismatch: expected %d, got %d", T.chainId, int(chainId))
-			T.log.Error("remote failed health check", "expected id", T.chainId, "got", int(chainId))
-			T.lastError = errMsg
-		default:
-			T.health = HealthStatusHealthy
-			T.lastError = ""
-			T.interval = min(T.maxInterval, T.interval*2)
-			T.timer.Reset(T.interval)
-
-			// Update metrics for success
-			prom.RemoteHealth.Status(healthLabel).Set(1) // Healthy
-			prom.RemoteHealth.LastSuccessTimestamp(healthLabel).Set(float64(time.Now().Unix()))
-			return
-		}
+	switch {
+	case chainIdErr != nil:
+		T.log.Error("remote failed health check", "method", "eth_chainId", "error", chainIdErr)
+		T.lastError = chainIdErr.Error()
 		T.health = HealthStatusUnhealthy
 		T.interval = T.minInterval
 		T.timer.Reset(T.interval)
-
-		// Update metrics for failure
 		prom.RemoteHealth.CheckFailures(healthLabel).Inc()
-		prom.RemoteHealth.Status(healthLabel).Set(0) // Unhealthy
-	}()
+		prom.RemoteHealth.Status(healthLabel).Set(0)
+	case int(chainId) != T.chainId:
+		errMsg := fmt.Sprintf("chain ID mismatch: expected %d, got %d", T.chainId, int(chainId))
+		T.log.Error("remote failed health check", "expected id", T.chainId, "got", int(chainId))
+		T.lastError = errMsg
+		T.health = HealthStatusUnhealthy
+		T.interval = T.minInterval
+		T.timer.Reset(T.interval)
+		prom.RemoteHealth.CheckFailures(healthLabel).Inc()
+		prom.RemoteHealth.Status(healthLabel).Set(0)
+	default:
+		T.health = HealthStatusHealthy
+		T.lastError = ""
+		T.interval = min(T.maxInterval, T.interval*2)
+		T.timer.Reset(T.interval)
+		prom.RemoteHealth.Status(healthLabel).Set(1)
+		prom.RemoteHealth.LastSuccessTimestamp(healthLabel).Set(float64(time.Now().Unix()))
+	}
 }
 
 // CanUse will return true if the remote is healthy, false if it is unhealthy, and will block until the first check is complete.
@@ -191,11 +244,13 @@ func (T *Doctor) CanUse() bool {
 }
 
 func (T *Doctor) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
-	if !T.CanUse() {
-		_ = w.Send(nil, ErrUnhealthy)
-		return
+	// For non-EVM probes, do not gate requests on health; pass-through
+	if _, isEvmProbe := T.probe.(evmDefaultProbe); isEvmProbe {
+		if !T.CanUse() {
+			_ = w.Send(nil, ErrUnhealthy)
+			return
+		}
 	}
-
 	T.remote.ServeRPC(w, r)
 }
 
@@ -252,6 +307,20 @@ func (T *Doctor) GetHealthStatus() HealthStatus {
 	T.mu.Lock()
 	defer T.mu.Unlock()
 	return T.health
+}
+
+// GetLastHead returns the last observed head during health checks (0 if unknown)
+func (T *Doctor) GetLastHead() uint64 {
+	T.mu.Lock()
+	defer T.mu.Unlock()
+	return T.lastHead
+}
+
+// GetLastChecked returns the last time a health check was executed
+func (T *Doctor) GetLastChecked() time.Time {
+	T.mu.Lock()
+	defer T.mu.Unlock()
+	return T.lastChecked
 }
 
 // GetChainName returns the chain name for this doctor

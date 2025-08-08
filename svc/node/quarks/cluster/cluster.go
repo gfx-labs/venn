@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"maps"
@@ -12,6 +13,7 @@ import (
 	"gfx.cafe/gfx/venn/svc/shared/services/prom"
 	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"gfx.cafe/gfx/venn/svc/node/middlewares/blockLookBack"
 
@@ -20,9 +22,52 @@ import (
 	"go.uber.org/fx"
 	"golang.org/x/time/rate"
 
+	"strings"
+
 	"gfx.cafe/gfx/venn/lib/callcenter"
 	"gfx.cafe/gfx/venn/lib/config"
+	"gfx.cafe/gfx/venn/lib/jrpcutil"
 )
+
+// protocol-specific doctor probes
+type evmDoctorProbe struct{}
+type solanaDoctorProbe struct{ chain *config.Chain }
+
+func (evmDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, chainId int) (uint64, time.Time, error) {
+	// EVM: require blockNumber to succeed
+	var head hexutil.Uint64
+	if err := jrpcutil.Do(ctx, remote, &head, "eth_blockNumber", []any{}); err != nil {
+		return 0, time.Now(), err
+	}
+	// Optional chainId check: done by Doctor after probe
+	return uint64(head), time.Now(), nil
+}
+
+func (p solanaDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, _ int) (uint64, time.Time, error) {
+	// Liveness via getBlockHeight (or getSlot)
+	var latest uint64
+	method := "getBlockHeight"
+	if p.chain != nil && p.chain.Solana != nil && p.chain.Solana.HeadMethod == "getSlot" {
+		method = "getSlot"
+	}
+	if err := jrpcutil.Do(ctx, remote, &latest, method, []any{}); err != nil {
+		return 0, time.Now(), err
+	}
+	// Optional getHealth: do not fail if unsupported
+	var health string
+	_ = jrpcutil.Do(ctx, remote, &health, "getHealth", []any{})
+	// Identity: if genesis hash configured, validate
+	if p.chain != nil && p.chain.Solana != nil && p.chain.Solana.GenesisHash != "" {
+		var gh string
+		if err := jrpcutil.Do(ctx, remote, &gh, "getGenesisHash", []any{}); err == nil {
+			// Some providers may append extra suffix; accept prefix match for safety
+			if gh != p.chain.Solana.GenesisHash && !strings.HasPrefix(gh, p.chain.Solana.GenesisHash) {
+				return latest, time.Now(), fmt.Errorf("genesis mismatch: expected %s got %s", p.chain.Solana.GenesisHash, gh)
+			}
+		}
+	}
+	return latest, time.Now(), nil
+}
 
 // RemoteTarget holds all middleware instances for a specific remote
 type RemoteTarget struct {
@@ -100,13 +145,21 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 		Validator: callcenter.NewValidator(
 			max(time.Minute, time.Duration(float64(time.Second)*2*chain.BlockTimeSeconds)),
 		),
-		Doctor: callcenter.NewDoctor(
+		Doctor: callcenter.NewDoctorWithProbe(
 			log.With("remote", cfg.Name, "chain", chain.Name),
 			chain.Id,
 			chain.Name,
 			cfg.Name,
 			cfg.HealthCheckIntervalMin.Duration,
 			cfg.HealthCheckIntervalMax.Duration,
+			func() callcenter.DoctorProbe {
+				switch chain.Protocol {
+				case "solana":
+					return solanaDoctorProbe{chain: chain}
+				default:
+					return evmDoctorProbe{}
+				}
+			}(),
 		),
 	}
 

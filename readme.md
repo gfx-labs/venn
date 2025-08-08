@@ -104,3 +104,63 @@ the project includes automated ci for pull requests that:
 - optionally runs integration tests (may fail if external services are unavailable)
 
 ci runs automatically on pull requests targeting main, master, or develop branches. ensure your code passes `gofmt -w .` before submitting prs.
+
+## Solana (non‑EVM) support
+
+Venn supports Solana over HTTP (no websockets). Enable per chain with `protocol: solana`.
+
+Example (see `venn.yml.sample` for a complete sample):
+
+```yaml
+chains:
+  - name: solana
+    id: 101
+    protocol: solana
+    block_time_seconds: 0.4
+    solana:
+      network: mainnet-beta
+      genesis_hash: 5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp
+      head_method: getBlockHeight   # or getSlot
+    remotes:
+      - name: solana-main
+        url: https://api.mainnet-beta.solana.com
+        priority: 100
+      - name: backup
+        url: https://solana-mainnet.rpcpool.com
+        priority: 90
+```
+
+Health: uses `getBlockHeight`/`getSlot` and optionally `getGenesisHash` (tolerant to provider suffixes). `getHealth` is counted as a bonus signal.
+
+Stalker: updates head via `head_method`, sleeping roughly `block_time_seconds` between polls. Non‑EVM chains are not request‑gated by health.
+
+### Gateway mapping (optional)
+
+See `gateway.solana.yml.sample`:
+
+```yaml
+endpoint:
+  venn_url: http://localhost:8545
+  paths:
+    sol: solana
+  methods:
+    - getLatestBlockhash
+    - getBlockHeight
+    - getSlot
+    - getGenesisHash
+    - getVersion
+    - getHealth
+```
+
+### Quick test
+
+```bash
+curl http://localhost:8545/solana \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "getLatestBlockhash"
+  }'
+```

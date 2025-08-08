@@ -111,6 +111,20 @@ type Chain struct {
 	Stalk              *bool          `json:"stalk,omitempty"`
 	ParsedStalk        bool           `json:"-"`
 	ForgeBlockReceipts bool           `json:"forge_block_receipts,omitempty"`
+
+	// Protocol indicates which RPC protocol the chain speaks. Defaults to "evm".
+	Protocol string        `json:"protocol,omitempty"`
+	Solana   *SolanaConfig `json:"solana,omitempty"`
+}
+
+// SolanaConfig holds optional Solana-specific settings
+type SolanaConfig struct {
+	// Network name (e.g., mainnet-beta, testnet, devnet)
+	Network string `json:"network,omitempty"`
+	// Expected genesis hash for identity checks
+	GenesisHash string `json:"genesis_hash,omitempty"`
+	// HeadMethod chooses how we derive head: "getBlockHeight" (default) or "getSlot"
+	HeadMethod string `json:"head_method,omitempty"`
 }
 
 type HeadOracles struct {

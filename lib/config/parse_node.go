@@ -118,6 +118,16 @@ func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 	// add all the filters from the presets block to the remotes
 	for _, v := range c.Chains {
 		var err error
+		// default protocol to evm if not specified
+		if v.Protocol == "" {
+			v.Protocol = "evm"
+		}
+		// default solana head method
+		if v.Protocol == "solana" && v.Solana != nil {
+			if v.Solana.HeadMethod == "" {
+				v.Solana.HeadMethod = "getBlockHeight"
+			}
+		}
 		v.ParsedStalk, err = util.CoaFunc(func(v *bool) (bool, error) {
 			return *v, nil
 		}, v.Stalk, true)

@@ -17,6 +17,7 @@ import (
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
 	"gfx.cafe/gfx/venn/lib/stores/headstore"
+	"gfx.cafe/gfx/venn/lib/util"
 	"gfx.cafe/gfx/venn/svc/node/atoms/election"
 	"gfx.cafe/gfx/venn/svc/node/quarks/cluster"
 	"gfx.cafe/gfx/venn/svc/shared/services/prom"
@@ -116,10 +117,34 @@ func (T *Stalker) stalk(ctx context.Context, chain *config.Chain, cluster *callc
 
 func (T *Stalker) tick(ctx context.Context, chain *config.Chain, cluster *callcenter.Cluster) (time.Duration, error) {
 	blockTime := max(time.Duration(chain.BlockTimeSeconds*float64(time.Second)), 500*time.Millisecond)
-	// ask for the latest block
+	// protocol-specific head fetch
 	var block json.RawMessage
-	if err := jrpcutil.Do(ctx, cluster, &block, "eth_getBlockByNumber", []any{"latest", false}); err != nil {
-		return blockTime, fmt.Errorf("get latest block: %w", err)
+	switch chain.Protocol {
+	case "solana":
+		// For Solana, derive head from getBlockHeight/getSlot and store directly; no timestamp backoff.
+		var headVal uint64
+		method := "getBlockHeight"
+		if chain.Solana != nil && chain.Solana.HeadMethod == "getSlot" {
+			method = "getSlot"
+		}
+		if err := jrpcutil.Do(ctx, cluster, &headVal, method, []any{}); err != nil {
+			// if rate limited, back off a bit more and retry later
+			if util.IsTimeoutError(err) {
+				return max(blockTime, 2*time.Second), fmt.Errorf("get solana head: %w", err)
+			}
+			return blockTime, fmt.Errorf("get solana head: %w", err)
+		}
+		// Update headstore and sleep roughly one block
+		_, err := T.headstore.Put(ctx, chain, hexutil.Uint64(headVal))
+		if err != nil {
+			return blockTime, err
+		}
+		return blockTime, nil
+	default:
+		// EVM path: existing logic
+		if err := jrpcutil.Do(ctx, cluster, &block, "eth_getBlockByNumber", []any{"latest", false}); err != nil {
+			return blockTime, fmt.Errorf("get latest block: %w", err)
+		}
 	}
 	now := time.Now()
 

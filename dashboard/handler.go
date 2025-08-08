@@ -220,7 +220,7 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain, headBloc
 				maxBlockLookBack := int64(0)
 				var requestsPerMin float64
 
-				// Get latest block from validator
+				// Get latest block/timestamp from validator; if not available, fallback to doctor (non-EVM chains)
 				var lastUpdated time.Time
 				if target.Validator != nil {
 					head, updated := target.Validator.GetHead()
@@ -245,6 +245,18 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain, headBloc
 
 					// Get last error
 					lastError = target.Doctor.GetLastError()
+
+					// If validator didn't provide head/updated, try doctor fallback (e.g., Solana)
+					if latestBlock == 0 {
+						if h := target.Doctor.GetLastHead(); h > 0 {
+							latestBlock = h
+						}
+					}
+					if lastUpdated.IsZero() {
+						if t := target.Doctor.GetLastChecked(); !t.IsZero() {
+							lastUpdated = t
+						}
+					}
 				}
 
 				// Calculate response time as time since last update
