@@ -33,6 +33,7 @@ import (
 type evmDoctorProbe struct{}
 type solanaDoctorProbe struct{ chain *config.Chain }
 type nearDoctorProbe struct{ chain *config.Chain }
+type suiDoctorProbe struct{ chain *config.Chain }
 
 func (evmDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, chainId int) (uint64, time.Time, error) {
 	// EVM: require blockNumber to succeed
@@ -76,13 +77,12 @@ func (p nearDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, _ 
 	if p.chain != nil && p.chain.Near != nil && p.chain.Near.Finality != "" {
 		finality = p.chain.Near.Finality
 	}
+	// Our JSON-RPC helper returns inner result, so unmarshal directly into the payload shape
 	var block struct {
-		Result struct {
-			Header struct {
-				Height uint64 `json:"height"`
-			} `json:"header"`
-			ChainID string `json:"chain_id,omitempty"`
-		} `json:"result"`
+		Header struct {
+			Height uint64 `json:"height"`
+		} `json:"header"`
+		ChainID string `json:"chain_id,omitempty"`
 	}
 	// NEAR expects named params as an object, not wrapped in an array
 	if err := jrpcutil.Do(ctx, remote, &block, "block", map[string]string{"finality": finality}); err != nil {
@@ -96,11 +96,39 @@ func (p nearDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, _ 
 		}
 		if err := jrpcutil.Do(ctx, remote, &status, "status", []any{}); err == nil {
 			if status.GenesisHash != "" && status.GenesisHash != p.chain.Near.GenesisHash {
-				return block.Result.Header.Height, time.Now(), fmt.Errorf("genesis mismatch: expected %s got %s", p.chain.Near.GenesisHash, status.GenesisHash)
+				return block.Header.Height, time.Now(), fmt.Errorf("genesis mismatch: expected %s got %s", p.chain.Near.GenesisHash, status.GenesisHash)
 			}
 		}
 	}
-	return block.Result.Header.Height, time.Now(), nil
+	return block.Header.Height, time.Now(), nil
+}
+
+func (p suiDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, _ int) (uint64, time.Time, error) {
+	// Head via sui_getLatestCheckpointSequenceNumber
+	method := "sui_getLatestCheckpointSequenceNumber"
+	if p.chain != nil && p.chain.Sui != nil && p.chain.Sui.HeadMethod != "" {
+		method = p.chain.Sui.HeadMethod
+	}
+	var latest string
+	if err := jrpcutil.Do(ctx, remote, &latest, method, []any{}); err != nil {
+		return 0, time.Now(), err
+	}
+	// Parse numeric string
+	var height uint64
+	_, err := fmt.Sscan(latest, &height)
+	if err != nil {
+		return 0, time.Now(), err
+	}
+	// Optional identity check
+	if p.chain != nil && p.chain.Sui != nil && p.chain.Sui.ChainIdentifier != "" {
+		var id string
+		if err := jrpcutil.Do(ctx, remote, &id, "sui_getChainIdentifier", []any{}); err == nil {
+			if id != p.chain.Sui.ChainIdentifier {
+				return height, time.Now(), fmt.Errorf("chain identifier mismatch: expected %s got %s", p.chain.Sui.ChainIdentifier, id)
+			}
+		}
+	}
+	return height, time.Now(), nil
 }
 
 // RemoteTarget holds all middleware instances for a specific remote
@@ -192,6 +220,8 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 					return solanaDoctorProbe{chain: chain}
 				case "near":
 					return nearDoctorProbe{chain: chain}
+				case "sui":
+					return suiDoctorProbe{chain: chain}
 				default:
 					return evmDoctorProbe{}
 				}

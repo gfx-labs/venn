@@ -99,24 +99,6 @@ the project includes automated ci for pull requests that:
 
 ci runs automatically on pull requests targeting main, master, or develop branches. ensure your code passes `gofmt -w .` before submitting prs.
 
-### Gateway mapping (optional)
-
-See `gateway.solana.yml.sample`:
-
-```yaml
-endpoint:
-  venn_url: http://localhost:8545
-  paths:
-    sol: solana
-  methods:
-    - getLatestBlockhash
-    - getBlockHeight
-    - getSlot
-    - getGenesisHash
-    - getVersion
-    - getHealth
-```
-
 ## Non‑EVM Blockchain
 
 ### Solana
@@ -161,7 +143,7 @@ curl http://localhost:8545/solana \
   }'
 ```
 
-## NEAR
+### NEAR
 
 Enable per chain with `protocol: near`.
 
@@ -195,4 +177,22 @@ curl http://localhost:8545/near \
     "method": "block",
     "params": {"finality":"final"}
   }'
+```
+
+### Gateway mapping (optional)
+
+Solana Example:
+
+```yaml
+endpoint:
+  venn_url: http://localhost:8545
+  paths:
+    sol: solana
+  methods:
+    - getLatestBlockhash
+    - getBlockHeight
+    - getSlot
+    - getGenesisHash
+    - getVersion
+    - getHealth
 ```

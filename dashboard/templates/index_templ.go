@@ -5,14 +5,14 @@ package templates
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import "github.com/a-h/templ"
-import templruntime "github.com/a-h/templ/runtime"
-
 import (
 	"fmt"
-	"gfx.cafe/gfx/venn/lib/callcenter"
 	"strconv"
 	"time"
+
+	"gfx.cafe/gfx/venn/lib/callcenter"
+	"github.com/a-h/templ"
+	templruntime "github.com/a-h/templ/runtime"
 )
 
 type ChainInfo struct {
@@ -161,7 +161,11 @@ func ChainCard(chain ChainInfo) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatUint(chain.ChainID, 10))
+		if chain.ChainID == 0 {
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs("N/A")
+		} else {
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatUint(chain.ChainID, 10))
+		}
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/index.templ`, Line: 59, Col: 98}
 		}

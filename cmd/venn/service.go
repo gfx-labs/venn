@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"errors"
-	"gfx.cafe/gfx/venn/lib/subctx"
 	"log/slog"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
+
+	"gfx.cafe/gfx/venn/lib/subctx"
 
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
@@ -131,12 +133,57 @@ func NewHeadLogger(params HeadLoggerParams) {
 
 func logHeads(ctx context.Context, log *slog.Logger, chains map[string]*config.Chain, handler jrpc.Handler) {
 	for _, chain := range chains {
-		var number hexutil.Uint64
 		cctx := subctx.WithChain(ctx, chain)
-		if err := jrpcutil.Do(cctx, handler, &number, "eth_blockNumber", nil); err != nil {
-			log.Error("logging head", "err", err)
-			continue
+		switch chain.Protocol {
+		case "solana":
+			method := "getBlockHeight"
+			if chain.Solana != nil && chain.Solana.HeadMethod == "getSlot" {
+				method = "getSlot"
+			}
+			var head uint64
+			if err := jrpcutil.Do(cctx, handler, &head, method, nil); err != nil {
+				log.Error("logging head (solana)", "chain", chain.Name, "err", err)
+				continue
+			}
+			log.Info("Head Block", "chain", chain.Name, "block", head)
+		case "near":
+			finality := "final"
+			if chain.Near != nil && chain.Near.Finality != "" {
+				finality = chain.Near.Finality
+			}
+			// Our JSON-RPC helper returns the inner result payload, so unmarshal directly into the payload shape
+			var block struct {
+				Header struct {
+					Height uint64 `json:"height"`
+				} `json:"header"`
+			}
+			if err := jrpcutil.Do(cctx, handler, &block, "block", map[string]string{"finality": finality}); err != nil {
+				log.Error("logging head (near)", "chain", chain.Name, "err", err)
+				continue
+			}
+			log.Info("Head Block", "chain", chain.Name, "block", block.Header.Height)
+		case "sui":
+			method := "sui_getLatestCheckpointSequenceNumber"
+			if chain.Sui != nil && chain.Sui.HeadMethod != "" {
+				method = chain.Sui.HeadMethod
+			}
+			var latest string
+			if err := jrpcutil.Do(cctx, handler, &latest, method, nil); err != nil {
+				log.Error("logging head (sui)", "chain", chain.Name, "err", err)
+				continue
+			}
+			if u, err := strconv.ParseUint(latest, 10, 64); err == nil {
+				log.Info("Head Block", "chain", chain.Name, "block", u)
+			} else {
+				log.Error("logging head (sui parse)", "chain", chain.Name, "err", err)
+			}
+		default:
+			var number hexutil.Uint64
+			if err := jrpcutil.Do(cctx, handler, &number, "eth_blockNumber", nil); err != nil {
+				log.Error("logging head", "chain", chain.Name, "err", err)
+				continue
+			}
+			log.Info("Head Block", "chain", chain.Name, "block", int(number))
 		}
-		log.Info("Head Block", "chain", chain.Name, "block", int(number))
 	}
 }

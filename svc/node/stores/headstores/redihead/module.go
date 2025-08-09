@@ -88,6 +88,8 @@ func (T *Redihead) Put(ctx context.Context, chain *config.Chain, head hexutil.Ui
 	if err != nil {
 		return 0, err
 	}
+	// Optimistically update the in-memory head immediately so readers see fresh values
+	T.setHead(chain.Name, uint64(head))
 	_, err = T.stream.Add(ctx, Head{
 		Value: uint64(head),
 		Chain: chain.Name,

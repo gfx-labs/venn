@@ -276,11 +276,14 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain, headBloc
 					requestsPerMin = target.Collector.GetRequestsPerMinute()
 				}
 
-				// Calculate blocks behind
-				var blocksBehind int64
-				if headBlock > 0 && latestBlock > 0 {
-					blocksBehind = int64(headBlock) - int64(latestBlock)
-				}
+                // Calculate blocks behind (clamped to >= 0)
+                var blocksBehind int64
+                if headBlock > 0 && latestBlock > 0 {
+                    blocksBehind = int64(headBlock) - int64(latestBlock)
+                    if blocksBehind < 0 {
+                        blocksBehind = 0
+                    }
+                }
 
 				remotes = append(remotes, templates.RemoteInfo{
 					Name:             remoteName,

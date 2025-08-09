@@ -146,12 +146,11 @@ func (T *Stalker) tick(ctx context.Context, chain *config.Chain, cluster *callce
 		if chain.Near != nil && chain.Near.Finality != "" {
 			finality = chain.Near.Finality
 		}
+		// Our JSON-RPC helper returns the inner result payload, so unmarshal directly into the payload shape
 		var block struct {
-			Result struct {
-				Header struct {
-					Height uint64 `json:"height"`
-				} `json:"header"`
-			} `json:"result"`
+			Header struct {
+				Height uint64 `json:"height"`
+			} `json:"header"`
 		}
 		// NEAR expects named params object
 		if err := jrpcutil.Do(ctx, cluster, &block, "block", map[string]string{"finality": finality}); err != nil {
@@ -160,8 +159,29 @@ func (T *Stalker) tick(ctx context.Context, chain *config.Chain, cluster *callce
 			}
 			return blockTime, fmt.Errorf("get near head: %w", err)
 		}
-		_, err := T.headstore.Put(ctx, chain, hexutil.Uint64(block.Result.Header.Height))
+		_, err := T.headstore.Put(ctx, chain, hexutil.Uint64(block.Header.Height))
 		if err != nil {
+			return blockTime, err
+		}
+		return blockTime, nil
+	case "sui":
+		// Sui: get latest checkpoint sequence number
+		method := "sui_getLatestCheckpointSequenceNumber"
+		if chain.Sui != nil && chain.Sui.HeadMethod != "" {
+			method = chain.Sui.HeadMethod
+		}
+		var latest string
+		if err := jrpcutil.Do(ctx, cluster, &latest, method, []any{}); err != nil {
+			if util.IsTimeoutError(err) {
+				return max(blockTime, 2*time.Second), fmt.Errorf("get sui head: %w", err)
+			}
+			return blockTime, fmt.Errorf("get sui head: %w", err)
+		}
+		var height uint64
+		if _, err := fmt.Sscan(latest, &height); err != nil {
+			return blockTime, err
+		}
+		if _, err := T.headstore.Put(ctx, chain, hexutil.Uint64(height)); err != nil {
 			return blockTime, err
 		}
 		return blockTime, nil

@@ -116,6 +116,7 @@ type Chain struct {
 	Protocol string        `json:"protocol,omitempty"`
 	Solana   *SolanaConfig `json:"solana,omitempty"`
 	Near     *NearConfig   `json:"near,omitempty"`
+	Sui      *SuiConfig    `json:"sui,omitempty"`
 }
 
 // SolanaConfig holds optional Solana-specific settings
@@ -136,6 +137,14 @@ type NearConfig struct {
 	GenesisHash string `json:"genesis_hash,omitempty"`
 	// Finality for head queries: "final" (default) or "optimistic"
 	Finality string `json:"finality,omitempty"`
+}
+
+// SuiConfig holds optional Sui-specific settings
+type SuiConfig struct {
+	// Expected chain identifier (hex string) from sui_getChainIdentifier
+	ChainIdentifier string `json:"chain_identifier,omitempty"`
+	// RPC method for head. Default: "sui_getLatestCheckpointSequenceNumber"
+	HeadMethod string `json:"head_method,omitempty"`
 }
 
 type HeadOracles struct {

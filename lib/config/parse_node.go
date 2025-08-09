@@ -134,6 +134,12 @@ func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 				v.Near.Finality = "final"
 			}
 		}
+		// default sui head method
+		if v.Protocol == "sui" && v.Sui != nil {
+			if v.Sui.HeadMethod == "" {
+				v.Sui.HeadMethod = "sui_getLatestCheckpointSequenceNumber"
+			}
+		}
 		v.ParsedStalk, err = util.CoaFunc(func(v *bool) (bool, error) {
 			return *v, nil
 		}, v.Stalk, true)
