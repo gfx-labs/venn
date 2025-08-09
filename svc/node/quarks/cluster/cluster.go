@@ -2,7 +2,6 @@ package cluster
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log/slog"
 	"maps"
@@ -22,114 +21,24 @@ import (
 	"go.uber.org/fx"
 	"golang.org/x/time/rate"
 
-	"strings"
-
 	"gfx.cafe/gfx/venn/lib/callcenter"
 	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
+	"gfx.cafe/gfx/venn/svc/node/protocols"
 )
 
-// protocol-specific doctor probes
+// protocol-specific doctor probes are provided via protocols registry
 type evmDoctorProbe struct{}
-type solanaDoctorProbe struct{ chain *config.Chain }
-type nearDoctorProbe struct{ chain *config.Chain }
-type suiDoctorProbe struct{ chain *config.Chain }
 
 func (evmDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, chainId int) (uint64, time.Time, error) {
-	// EVM: require blockNumber to succeed
 	var head hexutil.Uint64
 	if err := jrpcutil.Do(ctx, remote, &head, "eth_blockNumber", []any{}); err != nil {
 		return 0, time.Now(), err
 	}
-	// Optional chainId check: done by Doctor after probe
 	return uint64(head), time.Now(), nil
 }
 
-func (p solanaDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, _ int) (uint64, time.Time, error) {
-	// Liveness via getBlockHeight (or getSlot)
-	var latest uint64
-	method := "getBlockHeight"
-	if p.chain != nil && p.chain.Solana != nil && p.chain.Solana.HeadMethod == "getSlot" {
-		method = "getSlot"
-	}
-	if err := jrpcutil.Do(ctx, remote, &latest, method, []any{}); err != nil {
-		return 0, time.Now(), err
-	}
-	// Optional getHealth: do not fail if unsupported
-	var health string
-	_ = jrpcutil.Do(ctx, remote, &health, "getHealth", []any{})
-	// Identity: if genesis hash configured, validate
-	if p.chain != nil && p.chain.Solana != nil && p.chain.Solana.GenesisHash != "" {
-		var gh string
-		if err := jrpcutil.Do(ctx, remote, &gh, "getGenesisHash", []any{}); err == nil {
-			// Some providers may append extra suffix; accept prefix match for safety
-			if gh != p.chain.Solana.GenesisHash && !strings.HasPrefix(gh, p.chain.Solana.GenesisHash) {
-				return latest, time.Now(), fmt.Errorf("genesis mismatch: expected %s got %s", p.chain.Solana.GenesisHash, gh)
-			}
-		}
-	}
-	return latest, time.Now(), nil
-}
-
-func (p nearDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, _ int) (uint64, time.Time, error) {
-	// NEAR liveness via block with finality
-	finality := "final"
-	if p.chain != nil && p.chain.Near != nil && p.chain.Near.Finality != "" {
-		finality = p.chain.Near.Finality
-	}
-	// Our JSON-RPC helper returns inner result, so unmarshal directly into the payload shape
-	var block struct {
-		Header struct {
-			Height uint64 `json:"height"`
-		} `json:"header"`
-		ChainID string `json:"chain_id,omitempty"`
-	}
-	// NEAR expects named params as an object, not wrapped in an array
-	if err := jrpcutil.Do(ctx, remote, &block, "block", map[string]string{"finality": finality}); err != nil {
-		return 0, time.Now(), err
-	}
-	// Identity check (optional)
-	if p.chain != nil && p.chain.Near != nil && p.chain.Near.GenesisHash != "" {
-		var status struct {
-			ChainID     string `json:"chain_id"`
-			GenesisHash string `json:"genesis_hash"`
-		}
-		if err := jrpcutil.Do(ctx, remote, &status, "status", []any{}); err == nil {
-			if status.GenesisHash != "" && status.GenesisHash != p.chain.Near.GenesisHash {
-				return block.Header.Height, time.Now(), fmt.Errorf("genesis mismatch: expected %s got %s", p.chain.Near.GenesisHash, status.GenesisHash)
-			}
-		}
-	}
-	return block.Header.Height, time.Now(), nil
-}
-
-func (p suiDoctorProbe) Check(ctx context.Context, remote callcenter.Remote, _ int) (uint64, time.Time, error) {
-	// Head via sui_getLatestCheckpointSequenceNumber
-	method := "sui_getLatestCheckpointSequenceNumber"
-	if p.chain != nil && p.chain.Sui != nil && p.chain.Sui.HeadMethod != "" {
-		method = p.chain.Sui.HeadMethod
-	}
-	var latest string
-	if err := jrpcutil.Do(ctx, remote, &latest, method, []any{}); err != nil {
-		return 0, time.Now(), err
-	}
-	// Parse numeric string
-	var height uint64
-	_, err := fmt.Sscan(latest, &height)
-	if err != nil {
-		return 0, time.Now(), err
-	}
-	// Optional identity check
-	if p.chain != nil && p.chain.Sui != nil && p.chain.Sui.ChainIdentifier != "" {
-		var id string
-		if err := jrpcutil.Do(ctx, remote, &id, "sui_getChainIdentifier", []any{}); err == nil {
-			if id != p.chain.Sui.ChainIdentifier {
-				return height, time.Now(), fmt.Errorf("chain identifier mismatch: expected %s got %s", p.chain.Sui.ChainIdentifier, id)
-			}
-		}
-	}
-	return height, time.Now(), nil
-}
+// Non-EVM probes are implemented in package protocols
 
 // RemoteTarget holds all middleware instances for a specific remote
 type RemoteTarget struct {
@@ -215,16 +124,10 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 			cfg.HealthCheckIntervalMin.Duration,
 			cfg.HealthCheckIntervalMax.Duration,
 			func() callcenter.DoctorProbe {
-				switch chain.Protocol {
-				case "solana":
-					return solanaDoctorProbe{chain: chain}
-				case "near":
-					return nearDoctorProbe{chain: chain}
-				case "sui":
-					return suiDoctorProbe{chain: chain}
-				default:
-					return evmDoctorProbe{}
+				if probe := protocols.GetDoctorProbe(chain.Protocol, chain); probe != nil {
+					return probe
 				}
+				return evmDoctorProbe{}
 			}(),
 		),
 	}

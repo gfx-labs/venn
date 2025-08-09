@@ -8,6 +8,7 @@ import (
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 
 	"gfx.cafe/gfx/venn/lib/config"
+	"gfx.cafe/gfx/venn/svc/node/protocols"
 )
 
 // mockRemote returns a Remote that responds to Solana methods for tests
@@ -42,10 +43,10 @@ func TestSolanaDoctorProbe_Success(t *testing.T) {
 			HeadMethod:  "getBlockHeight",
 		},
 	}
-	probe := solanaDoctorProbe{chain: chain}
+	probe := protocols.GetDoctorProbe("solana", chain)
 	remote := mockRemote("expected-genesis", false)
 
-	if err := probe.Check(context.Background(), remote, 0); err != nil {
+	if _, _, err := probe.Check(context.Background(), remote, 0); err != nil {
 		t.Fatalf("expected success, got error: %v", err)
 	}
 }
@@ -59,10 +60,10 @@ func TestSolanaDoctorProbe_GenesisMismatch(t *testing.T) {
 			HeadMethod:  "getBlockHeight",
 		},
 	}
-	probe := solanaDoctorProbe{chain: chain}
+	probe := protocols.GetDoctorProbe("solana", chain)
 	remote := mockRemote("wrong-genesis", false)
 
-	if err := probe.Check(context.Background(), remote, 0); err == nil {
+	if _, _, err := probe.Check(context.Background(), remote, 0); err == nil {
 		t.Fatalf("expected genesis mismatch error, got nil")
 	}
 }
