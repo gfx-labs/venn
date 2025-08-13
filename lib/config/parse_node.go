@@ -122,6 +122,7 @@ func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 		if v.Protocol == "" {
 			v.Protocol = "evm"
 		}
+
 		// default solana head method
 		if v.Protocol == "solana" && v.Solana != nil {
 			if v.Solana.HeadMethod == "" {

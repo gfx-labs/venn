@@ -138,10 +138,16 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 			cfg.RateLimit.Burst,
 		)
 	} else {
-		// default values of 50/100
+		// protocol-specific defaults
+		defaultEPS := rate.Limit(50)
+		defaultBurst := 100
+		if chain.Protocol == "near" {
+			defaultEPS = rate.Limit(200)
+			defaultBurst = 400
+		}
 		mw.RateLimiter = callcenter.NewRatelimiter(
-			50,
-			100,
+			defaultEPS,
+			defaultBurst,
 		)
 	}
 

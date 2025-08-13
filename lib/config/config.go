@@ -121,8 +121,6 @@ type Chain struct {
 
 // SolanaConfig holds optional Solana-specific settings
 type SolanaConfig struct {
-	// Network name (e.g., mainnet-beta, testnet, devnet)
-	Network string `json:"network,omitempty"`
 	// Expected genesis hash for identity checks
 	GenesisHash string `json:"genesis_hash,omitempty"`
 	// HeadMethod chooses how we derive head: "getBlockHeight" (default) or "getSlot"
@@ -131,8 +129,6 @@ type SolanaConfig struct {
 
 // NearConfig holds optional NEAR-specific settings
 type NearConfig struct {
-	// NetworkID (e.g., mainnet, testnet)
-	NetworkID string `json:"network_id,omitempty"`
 	// Expected genesis hash for identity checks
 	GenesisHash string `json:"genesis_hash,omitempty"`
 	// Finality for head queries: "final" (default) or "optimistic"

@@ -87,6 +87,12 @@ the project uses go 1.23+ and can be built with:
 go build ./cmd/venn
 ```
 
+run tests with:
+
+```bash
+go test ./lib/... ./svc/...
+```
+
 ## continuous integration
 
 the project includes automated ci for pull requests that:
@@ -114,7 +120,6 @@ chains:
     protocol: solana
     block_time_seconds: 0.4
     solana:
-      network: mainnet-beta
       genesis_hash: 5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp
       head_method: getBlockHeight   # or getSlot
     remotes:
@@ -130,7 +135,7 @@ Health: uses `getBlockHeight`/`getSlot` and optionally `getGenesisHash` (toleran
 
 Stalker: updates head via `head_method`, sleeping roughly `block_time_seconds` between polls. Non‑EVM chains are not request‑gated by health.
 
-Quick test:s
+Quick test:
 
 ```bash
 curl http://localhost:8545/solana \
@@ -156,7 +161,6 @@ chains:
     protocol: near
     block_time_seconds: 1.2
     near:
-      network_id: mainnet
       finality: final
       genesis_hash: ""
     remotes:
@@ -177,22 +181,4 @@ curl http://localhost:8545/near \
     "method": "block",
     "params": {"finality":"final"}
   }'
-```
-
-### Gateway mapping (optional)
-
-Solana Example:
-
-```yaml
-endpoint:
-  venn_url: http://localhost:8545
-  paths:
-    sol: solana
-  methods:
-    - getLatestBlockhash
-    - getBlockHeight
-    - getSlot
-    - getGenesisHash
-    - getVersion
-    - getHealth
 ```

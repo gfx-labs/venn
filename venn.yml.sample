@@ -25,11 +25,9 @@ chains:
   
   # Solana (HTTP-only) example
 - block_time_seconds: 0.4
-  id: 0
   name: solana
   protocol: solana
   solana:
-    network: mainnet-beta
     genesis_hash: 5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp
     head_method: getBlockHeight # or getSlot
   remotes:
@@ -44,11 +42,9 @@ chains:
 
   # NEAR example
 - block_time_seconds: 1.2
-  id: 0
   name: near_testnet
   protocol: near
   near:
-    network_id: mainnet
     finality: final
     genesis_hash: "" # optional
   remotes:
@@ -70,7 +66,6 @@ chains:
 
   # Sui example
 - block_time_seconds: 0.8
-  id: 0
   name: sui_testnet
   protocol: sui
   sui:
