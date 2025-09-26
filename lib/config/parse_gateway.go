@@ -53,6 +53,14 @@ func GatewayFileParser(file string) func() (GatewayConfigResult, error) {
 		if ll := os.Getenv("SLOG_FORMAT"); ll != "" {
 			logFormat = ll
 		}
+		// Auto-detect container environment if no format specified
+		if logFormat == "" {
+			if isContainerEnvironment() {
+				logFormat = "json"
+			} else {
+				logFormat = "tint"
+			}
+		}
 		switch logFormat {
 		case "json":
 			logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{

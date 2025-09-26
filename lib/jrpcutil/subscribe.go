@@ -113,6 +113,7 @@ var _ subscription.ClientSubscription = (*Subscription)(nil)
 type subscriptionInterceptor struct {
 	sub   *Subscription
 	error error
+	extraFields jsonrpc.ExtraFields
 }
 
 func (T *subscriptionInterceptor) Send(id any, err error) error {
@@ -134,6 +135,13 @@ func (T *subscriptionInterceptor) Send(id any, err error) error {
 func (T *subscriptionInterceptor) Notify(_ string, v any) error {
 	T.sub.notify(v)
 	return nil
+}
+
+func (T *subscriptionInterceptor) ExtraFields() jsonrpc.ExtraFields {
+	if T.extraFields == nil {
+		T.extraFields = make(jsonrpc.ExtraFields)
+	}
+	return T.extraFields
 }
 
 var _ jrpc.ResponseWriter = (*subscriptionInterceptor)(nil)

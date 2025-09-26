@@ -57,6 +57,14 @@ func NodeFileParser(file string) func() (NodeConfigResult, error) {
 		if ll := os.Getenv("SLOG_FORMAT"); ll != "" {
 			logFormat = ll
 		}
+		// Auto-detect container environment if no format specified
+		if logFormat == "" {
+			if isContainerEnvironment() {
+				logFormat = "json"
+			} else {
+				logFormat = "tint"
+			}
+		}
 		switch logFormat {
 		case "json":
 			logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -111,7 +119,7 @@ func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 	c.Redis.URI = util.Coa(c.Redis.URI, "embedded")
 
 	if c.Ratelimit != nil {
-		c.Ratelimit.Total = util.Coa(c.Ratelimit.Total, 200)
+		c.Ratelimit.Total = util.Coa(c.Ratelimit.Total, 2000)
 		c.Ratelimit.Window = util.Coa(c.Ratelimit.Window, Duration{time.Second * 10})
 	}
 

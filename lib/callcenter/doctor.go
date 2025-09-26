@@ -111,7 +111,7 @@ func (T *Doctor) check() {
 	err := jrpcutil.Do(ctx, T.remote, &blockNumber, "eth_blockNumber", []any{})
 	if err != nil {
 		T.mu.Lock()
-		T.log.Error("remote failed health check", "method", "eth_blockNumber", "error", err)
+		T.log.Error("remote failed health check", "chain", T.chainName, "remote", T.remoteName, "method", "eth_blockNumber", "error", err)
 		T.health = HealthStatusUnhealthy
 		T.lastError = err.Error()
 		T.interval = T.minInterval
@@ -143,11 +143,11 @@ func (T *Doctor) check() {
 	func() {
 		switch {
 		case err != nil:
-			T.log.Error("remote failed health check", "method", "eth_chainId", "error", err)
+			T.log.Error("remote failed health check", "chain", T.chainName, "remote", T.remoteName, "method", "eth_chainId", "error", err)
 			T.lastError = err.Error()
 		case int(chainId) != T.chainId:
 			errMsg := fmt.Sprintf("chain ID mismatch: expected %d, got %d", T.chainId, int(chainId))
-			T.log.Error("remote failed health check", "expected id", T.chainId, "got", int(chainId))
+			T.log.Error("remote failed health check", "chain", T.chainName, "remote", T.remoteName, "expected id", T.chainId, "got", int(chainId))
 			T.lastError = errMsg
 		default:
 			T.health = HealthStatusHealthy
@@ -192,7 +192,8 @@ func (T *Doctor) CanUse() bool {
 
 func (T *Doctor) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 	if !T.CanUse() {
-		_ = w.Send(nil, ErrUnhealthy)
+		err := jsonrpc.NewInternalError(fmt.Sprintf("remote '%s' on chain '%s' is unhealthy", T.remoteName, T.chainName))
+		_ = w.Send(nil, err)
 		return
 	}
 

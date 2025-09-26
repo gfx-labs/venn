@@ -3,6 +3,7 @@ package callcenter
 import (
 	"fmt"
 	"gfx.cafe/open/jrpc"
+	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"log/slog"
 	"sync"
 	"time"
@@ -93,7 +94,8 @@ func (T *Backer) healthy() bool {
 func (T *Backer) Middleware(next jrpc.Handler) jrpc.Handler {
 	return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
 		if !T.healthy() {
-			_ = w.Send(nil, ErrUnhealthy)
+			err := jsonrpc.NewInternalError("remote is unhealthy (backoff active)")
+			_ = w.Send(nil, err)
 			return
 		}
 

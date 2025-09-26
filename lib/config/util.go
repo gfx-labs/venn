@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"os"
+	"strings"
 )
 
 type EnvExpandable string
@@ -57,4 +58,30 @@ func (u *SafeUrl) UnmarshalJSON(bts []byte) error {
 	urlString := SafeUrl(urls.String())
 	*u = urlString
 	return nil
+}
+
+// isContainerEnvironment checks if the application is running inside a container
+func isContainerEnvironment() bool {
+	// Check for Docker container
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return true
+	}
+
+	// Check cgroup for container indicators
+	if data, err := os.ReadFile("/proc/1/cgroup"); err == nil {
+		cgroupStr := string(data)
+		if strings.Contains(cgroupStr, "docker") ||
+		   strings.Contains(cgroupStr, "containerd") ||
+		   strings.Contains(cgroupStr, "kubepods") ||
+		   strings.Contains(cgroupStr, "lxc") {
+			return true
+		}
+	}
+
+	// Check for Kubernetes environment
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+		return true
+	}
+
+	return false
 }
