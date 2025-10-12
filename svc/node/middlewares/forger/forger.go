@@ -8,17 +8,27 @@ import (
 	"github.com/go-faster/jx"
 	"golang.org/x/sync/errgroup"
 
+	"gfx.cafe/gfx/venn/lib/config"
 	"gfx.cafe/gfx/venn/lib/ethtypes"
 	"gfx.cafe/gfx/venn/lib/jrpcutil"
+	"gfx.cafe/gfx/venn/lib/subctx"
 )
 
 type Forger struct {
+	Chains map[string]*config.Chain
 }
 
 func (T *Forger) Middleware(next jrpc.Handler) jrpc.Handler {
 	return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
 		switch r.Method {
 		case "eth_getBlockReceipts":
+			// Check if forging is enabled for this chain
+			chain, err := subctx.GetChain(r.Context())
+			if err != nil || !chain.ForgeBlockReceipts {
+				// Forging disabled or no chain context, pass through
+				next.ServeRPC(w, r)
+				return
+			}
 			// we're in business
 			var blockNumber [1]ethtypes.BlockNumber
 			if err := json.Unmarshal(r.Params, &blockNumber); err != nil {

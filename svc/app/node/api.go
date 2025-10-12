@@ -85,7 +85,7 @@ func New(p Params) (r Result, err error) {
 	middlewares := []jrpc.Middleware{
 		p.Cacher.Middleware,
 		p.HeadReplacer.Middleware,
-		(&forger.Forger{}).Middleware,
+		(&forger.Forger{Chains: p.Chains}).Middleware,
 		p.Subcenter.Middleware,
 	}
 

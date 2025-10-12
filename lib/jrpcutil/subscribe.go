@@ -111,8 +111,8 @@ func (T *Subscription) notify(v any) {
 var _ subscription.ClientSubscription = (*Subscription)(nil)
 
 type subscriptionInterceptor struct {
-	sub   *Subscription
-	error error
+	sub         *Subscription
+	error       error
 	extraFields jsonrpc.ExtraFields
 }
 
