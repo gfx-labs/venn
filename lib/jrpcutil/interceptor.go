@@ -8,8 +8,8 @@ import (
 )
 
 type Interceptor struct {
-	Result any
-	Error  error
+	Result      any
+	Error       error
 	extraFields jsonrpc.ExtraFields
 }
 

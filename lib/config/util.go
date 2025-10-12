@@ -71,9 +71,9 @@ func isContainerEnvironment() bool {
 	if data, err := os.ReadFile("/proc/1/cgroup"); err == nil {
 		cgroupStr := string(data)
 		if strings.Contains(cgroupStr, "docker") ||
-		   strings.Contains(cgroupStr, "containerd") ||
-		   strings.Contains(cgroupStr, "kubepods") ||
-		   strings.Contains(cgroupStr, "lxc") {
+			strings.Contains(cgroupStr, "containerd") ||
+			strings.Contains(cgroupStr, "kubepods") ||
+			strings.Contains(cgroupStr, "lxc") {
 			return true
 		}
 	}
