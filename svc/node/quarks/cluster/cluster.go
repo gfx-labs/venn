@@ -129,8 +129,8 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 	}
 	mw.Filterer = callcenter.NewFilterer(methods)
 
-	if cfg.MaxBlockLookBack > 0 {
-		mw.BlockLookBack = blockLookBack.New(cfg, headStore)
+	if cfg.MaxBlockLookBack > 0 || chain.MaxBlockLookBack > 0 {
+		mw.BlockLookBack = blockLookBack.New(chain, cfg, headStore)
 	}
 
 	return mw, proxier

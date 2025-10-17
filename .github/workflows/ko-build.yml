@@ -37,6 +37,10 @@ jobs:
       run: |
         echo "$REGISTRY_PASSWORD" | ko login oci.gfx.cafe -u "$REGISTRY_USERNAME" --password-stdin
 
+    - name: Log in to GitHub Container Registry
+      run: |
+        echo "${{ secrets.GITHUB_TOKEN }}" | ko login ghcr.io -u ${{ github.actor }} --password-stdin
+
     - name: Build and push container (branch)
       if: github.ref_type == 'branch'
       run: |
@@ -44,13 +48,19 @@ jobs:
         BRANCH_SAFE=$(echo $BRANCH | sed 's/[^a-zA-Z0-9-]/-/g')
         SHORT_SHA=${GITHUB_SHA::7}
 
-        # Build and push with branch name and commit hash as separate tags
+        # Build and push to Harbor
         ko build --bare ./cmd/venn --tags=${BRANCH_SAFE},${SHORT_SHA}
+
+        # Build and push to GHCR
+        KO_DOCKER_REPO=ghcr.io/gfx-labs/venn ko build --bare ./cmd/venn --tags=${BRANCH_SAFE},${SHORT_SHA}
 
     - name: Build and push container (version tag)
       if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
       run: |
         TAG=${GITHUB_REF#refs/tags/}
 
-        # Build and push with version tag (keeping v prefix)
+        # Build and push to Harbor
         ko build --bare ./cmd/venn --tags=$TAG,latest
+
+        # Build and push to GHCR
+        KO_DOCKER_REPO=ghcr.io/gfx-labs/venn ko build --bare ./cmd/venn --tags=$TAG,latest

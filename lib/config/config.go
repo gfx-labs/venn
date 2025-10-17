@@ -111,6 +111,7 @@ type Chain struct {
 	Stalk              *bool          `json:"stalk,omitempty"`
 	ParsedStalk        bool           `json:"-"`
 	ForgeBlockReceipts bool           `json:"forge_block_receipts,omitempty"`
+	MaxBlockLookBack   int            `json:"max_block_look_back,omitempty"`
 }
 
 type HeadOracles struct {

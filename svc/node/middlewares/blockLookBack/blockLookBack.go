@@ -16,15 +16,42 @@ import (
 
 // BlockLookBack is a middleware that prevents requests for blocks that are too old
 type BlockLookBack struct {
-	cfg       *config.Remote
+	chainCfg  *config.Chain
+	remoteCfg *config.Remote
 	headStore headstore.Store
 }
 
-func New(cfg *config.Remote, headStore headstore.Store) *BlockLookBack {
+func New(chainCfg *config.Chain, remoteCfg *config.Remote, headStore headstore.Store) *BlockLookBack {
 	return &BlockLookBack{
-		cfg:       cfg,
+		chainCfg:  chainCfg,
+		remoteCfg: remoteCfg,
 		headStore: headStore,
 	}
+}
+
+// getEffectiveLookBack returns the effective lookback limit
+// Takes the minimum of chain and remote config (where 0 means no limit)
+func (m *BlockLookBack) getEffectiveLookBack() int {
+	chainLimit := m.chainCfg.MaxBlockLookBack
+	remoteLimit := m.remoteCfg.MaxBlockLookBack
+
+	// If both are 0, no limit
+	if chainLimit == 0 && remoteLimit == 0 {
+		return 0
+	}
+	// If only chain is set, use it
+	if remoteLimit == 0 {
+		return chainLimit
+	}
+	// If only remote is set, use it
+	if chainLimit == 0 {
+		return remoteLimit
+	}
+	// Both are set, use minimum (most restrictive)
+	if chainLimit < remoteLimit {
+		return chainLimit
+	}
+	return remoteLimit
 }
 
 func (m *BlockLookBack) Middleware(next jrpc.Handler) jrpc.Handler {
@@ -33,8 +60,10 @@ func (m *BlockLookBack) Middleware(next jrpc.Handler) jrpc.Handler {
 		switch r.Method {
 		case "eth_getBlockByNumber", "eth_getTransactionByBlockNumberAndIndex":
 			err = m.check2Param(r, 0)
-		case "eth_getTransactionCount":
+		case "eth_getTransactionCount", "eth_getBalance", "eth_getCode", "eth_call", "eth_estimateGas", "eth_createAccessList":
 			err = m.check2Param(r, 1)
+		case "eth_getStorageAt":
+			err = m.check3Param(r, 2)
 		case "eth_getBlockReceipts", "eth_getBlockTransactionCountByNumber",
 			"eth_getUncleCountByBlockNumber", "debug_getRawHeader",
 			"debug_getRawBlock":
@@ -53,6 +82,13 @@ func (m *BlockLookBack) Middleware(next jrpc.Handler) jrpc.Handler {
 }
 
 func (m *BlockLookBack) validateBlockNumber(ctx context.Context, blockNumber ethtypes.BlockNumber) error {
+	effectiveLookBack := m.getEffectiveLookBack()
+
+	// If no lookback limit is configured, allow all blocks
+	if effectiveLookBack == 0 {
+		return nil
+	}
+
 	chain, err := subctx.GetChain(ctx)
 	if err != nil {
 		return err
@@ -63,8 +99,8 @@ func (m *BlockLookBack) validateBlockNumber(ctx context.Context, blockNumber eth
 	}
 
 	if (blockNumber == ethtypes.EarliestBlockNumber) || ((blockNumber > 0) &&
-		(uint64(blockNumber) < (uint64(head) - uint64(m.cfg.MaxBlockLookBack)))) {
-		err = fmt.Errorf("block number, %d, is too old", blockNumber)
+		(uint64(blockNumber) < (uint64(head) - uint64(effectiveLookBack)))) {
+		err = fmt.Errorf("block number, %d, is too old (max lookback: %d blocks from head: %d)", blockNumber, effectiveLookBack, head)
 	}
 
 	return err
@@ -75,8 +111,25 @@ func (m *BlockLookBack) check2Param(r *jrpc.Request, index int) error {
 	if err := json.Unmarshal(r.Params, &params); err != nil {
 		return err
 	}
-	if len(params) != 2 {
-		return jsonrpc.NewInvalidParamsError("expected 2 params")
+	if len(params) < 2 {
+		return nil // Block parameter is optional for some methods
+	}
+
+	var blockNumber ethtypes.BlockNumber
+	if err := json.Unmarshal(params[index], &blockNumber); err != nil {
+		return err
+	}
+
+	return m.validateBlockNumber(r.Context(), blockNumber)
+}
+
+func (m *BlockLookBack) check3Param(r *jrpc.Request, index int) error {
+	var params []json.RawMessage
+	if err := json.Unmarshal(r.Params, &params); err != nil {
+		return err
+	}
+	if len(params) < 3 {
+		return nil // Block parameter is optional
 	}
 
 	var blockNumber ethtypes.BlockNumber

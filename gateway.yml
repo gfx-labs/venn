@@ -21,8 +21,8 @@ endpoint:
   name: public
   venn_url: http://localhost:8545
   paths:
-    evm-1: ethereum
-    evm-8453: base
+    'eip155:1': ethereum
+    'eip155:8453': base
   limits:
     abuse:
       - id: "rps-simple"
