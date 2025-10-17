@@ -68,7 +68,6 @@ an eth_getLogs request for historical information will go to the caches, then th
 
 as previously mentioned, we converted from not-fx to fx, so there are some rough edges around the structure. this is a very old project within gfx.
 
-
 #### the app is multi-chain, instead of one chain per.
 
 the oku backend is single-chain-tenanted, and it does make a lot of sense, from a devex point of view, to only ever be running a single chain at a time.
@@ -76,31 +75,3 @@ the oku backend is single-chain-tenanted, and it does make a lot of sense, from 
 however, the bottleneck that this app addresses is the ability to parse json, understand the json, and then perform requests to external services. that means that for ideal scaling with minimal performance wastage, all chains should be combined, as you should scale this program with the absolute amount of rpc requests you need to serve, not the type of, or to which chain, the rpc requests are going to.
 
 that said, i do still see the value of having a single-chain-per-app.
-
-# development
-
-## building and testing
-
-the project uses go 1.23+ and can be built with:
-
-```bash
-go build ./cmd/venn
-```
-
-run tests with:
-
-```bash
-go test ./lib/... ./svc/...
-```
-
-## continuous integration
-
-the project includes automated ci for pull requests that:
-
-- validates go formatting with `gofmt`
-- runs `go vet` for static analysis  
-- builds the application
-- runs all unit tests including race detection
-- optionally runs integration tests (may fail if external services are unavailable)
-
-ci runs automatically on pull requests targeting main, master, or develop branches. ensure your code passes `gofmt -w .` before submitting prs.
