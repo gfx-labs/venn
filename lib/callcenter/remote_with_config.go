@@ -1,7 +1,7 @@
 package callcenter
 
 import (
-	"gfx.cafe/gfx/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/config"
 	"gfx.cafe/open/jrpc"
 )
 

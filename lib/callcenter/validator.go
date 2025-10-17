@@ -16,8 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/go-faster/jx"
 
-	"gfx.cafe/gfx/venn/lib/ethtypes"
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
+	"github.com/gfx-labs/venn/lib/ethtypes"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
 )
 
 // Validator validates that the result returned by the rpc is valid.

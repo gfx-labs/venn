@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"gfx.cafe/gfx/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/config"
 
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/singleflight"

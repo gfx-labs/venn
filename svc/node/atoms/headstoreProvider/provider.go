@@ -1,8 +1,8 @@
 package headstoreProvider
 
 import (
-	"gfx.cafe/gfx/venn/lib/stores/headstore"
-	"gfx.cafe/gfx/venn/svc/node/stores/headstores/redihead"
+	"github.com/gfx-labs/venn/lib/stores/headstore"
+	"github.com/gfx-labs/venn/svc/node/stores/headstores/redihead"
 	"go.uber.org/fx"
 )
 

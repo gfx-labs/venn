@@ -2,7 +2,7 @@ package subctx
 
 import (
 	"context"
-	"gfx.cafe/gfx/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/config"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

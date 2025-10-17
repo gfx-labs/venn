@@ -7,21 +7,21 @@ import (
 	"maps"
 	"time"
 
-	"gfx.cafe/gfx/venn/lib/stores/headstore"
-	"gfx.cafe/gfx/venn/lib/subctx"
-	"gfx.cafe/gfx/venn/svc/shared/services/prom"
+	"github.com/gfx-labs/venn/lib/stores/headstore"
+	"github.com/gfx-labs/venn/lib/subctx"
+	"github.com/gfx-labs/venn/svc/shared/services/prom"
 	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 
-	"gfx.cafe/gfx/venn/svc/node/middlewares/blockLookBack"
+	"github.com/gfx-labs/venn/svc/node/middlewares/blockLookBack"
 
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/contrib/codecs/http"
 	"go.uber.org/fx"
 	"golang.org/x/time/rate"
 
-	"gfx.cafe/gfx/venn/lib/callcenter"
-	"gfx.cafe/gfx/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/callcenter"
+	"github.com/gfx-labs/venn/lib/config"
 )
 
 // RemoteTarget holds all middleware instances for a specific remote

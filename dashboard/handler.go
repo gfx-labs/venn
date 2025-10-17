@@ -9,11 +9,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/sync/singleflight"
 
-	"gfx.cafe/gfx/venn/dashboard/templates"
-	"gfx.cafe/gfx/venn/lib/callcenter"
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/stores/headstore"
-	"gfx.cafe/gfx/venn/svc/node/quarks/cluster"
+	"github.com/gfx-labs/venn/dashboard/templates"
+	"github.com/gfx-labs/venn/lib/callcenter"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/stores/headstore"
+	"github.com/gfx-labs/venn/svc/node/quarks/cluster"
 )
 
 //go:embed static/*

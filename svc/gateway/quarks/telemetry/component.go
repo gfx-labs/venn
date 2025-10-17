@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"time"
 
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/svc/gateway/services/gnat"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/svc/gateway/services/gnat"
 	"gfx.cafe/open/jrpc/pkg/jjson"
 	"github.com/nats-io/nats.go/jetstream"
 	"go.uber.org/fx"

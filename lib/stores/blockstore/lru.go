@@ -3,7 +3,7 @@ package blockstore
 import (
 	"context"
 	"errors"
-	"gfx.cafe/gfx/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/config"
 	"sync"
 
 	"gfx.cafe/util/go/generic"

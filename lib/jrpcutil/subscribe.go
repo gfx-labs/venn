@@ -10,7 +10,7 @@ import (
 	"gfx.cafe/open/jrpc/contrib/extension/subscription"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 
-	"gfx.cafe/gfx/venn/lib/subctx"
+	"github.com/gfx-labs/venn/lib/subctx"
 )
 
 var engine = subscription.NewEngine()

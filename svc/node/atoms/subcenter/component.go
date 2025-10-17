@@ -3,8 +3,8 @@ package subcenter
 import (
 	"bytes"
 	"encoding/json"
-	"gfx.cafe/gfx/venn/lib/stores/headstore"
-	"gfx.cafe/gfx/venn/lib/subctx"
+	"github.com/gfx-labs/venn/lib/stores/headstore"
+	"github.com/gfx-labs/venn/lib/subctx"
 	"log/slog"
 
 	"gfx.cafe/open/jrpc"
@@ -13,9 +13,9 @@ import (
 	"github.com/go-faster/jx"
 	"go.uber.org/fx"
 
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/ethtypes"
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/ethtypes"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
 )
 
 type Subcenter struct {

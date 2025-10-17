@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
-	"gfx.cafe/gfx/venn/lib/util"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
+	"github.com/gfx-labs/venn/lib/util"
 )
 
 // Backer controls exponential error and rate limit backoff for a particular remote.

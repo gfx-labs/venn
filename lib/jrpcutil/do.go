@@ -8,7 +8,7 @@ import (
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/bytedance/sonic"
 
-	"gfx.cafe/gfx/venn/lib/subctx"
+	"github.com/gfx-labs/venn/lib/subctx"
 )
 
 func Do(ctx context.Context, handler jrpc.Handler, result any, method string, args any) error {

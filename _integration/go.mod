@@ -1,4 +1,4 @@
-module gfx.cafe/open/venn/integration
+module github.com/gfx-labs/venn/integration
 
 go 1.24.0
 

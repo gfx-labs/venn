@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"gfx.cafe/gfx/venn/lib/util"
+	"github.com/gfx-labs/venn/lib/util"
 	"sigs.k8s.io/yaml"
 
 	"github.com/lmittmann/tint"

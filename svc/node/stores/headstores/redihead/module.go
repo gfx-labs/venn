@@ -12,9 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"go.uber.org/fx"
 
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/stores/headstore"
-	"gfx.cafe/gfx/venn/svc/shared/services/redi"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/stores/headstore"
+	"github.com/gfx-labs/venn/svc/shared/services/redi"
 )
 
 type Head struct {

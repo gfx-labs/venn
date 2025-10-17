@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"gfx.cafe/gfx/venn/lib/oracles"
+	"github.com/gfx-labs/venn/lib/oracles"
 	"github.com/google/cel-go/cel"
 )
 

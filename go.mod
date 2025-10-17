@@ -1,4 +1,4 @@
-module gfx.cafe/gfx/venn
+module github.com/gfx-labs/venn
 
 go 1.25.0
 

@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gfx.cafe/gfx/venn/lib/callcenter"
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/ethtypes"
-	"gfx.cafe/gfx/venn/lib/stores/headstore"
-	"gfx.cafe/gfx/venn/lib/subctx"
+	"github.com/gfx-labs/venn/lib/callcenter"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/ethtypes"
+	"github.com/gfx-labs/venn/lib/stores/headstore"
+	"github.com/gfx-labs/venn/lib/subctx"
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 )

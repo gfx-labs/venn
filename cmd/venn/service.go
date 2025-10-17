@@ -3,14 +3,14 @@ package main
 import (
 	"context"
 	"errors"
-	"gfx.cafe/gfx/venn/lib/subctx"
+	"github.com/gfx-labs/venn/lib/subctx"
 	"log/slog"
 	"net"
 	"net/http"
 	"time"
 
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/contrib/extension/subscription"
 	"github.com/ethereum/go-ethereum/common/hexutil"

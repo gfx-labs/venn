@@ -8,18 +8,18 @@ import (
 	"log/slog"
 	"time"
 
-	"gfx.cafe/gfx/venn/lib/subctx"
+	"github.com/gfx-labs/venn/lib/subctx"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"go.uber.org/fx"
 
-	"gfx.cafe/gfx/venn/lib/callcenter"
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
-	"gfx.cafe/gfx/venn/lib/stores/headstore"
-	"gfx.cafe/gfx/venn/svc/node/atoms/election"
-	"gfx.cafe/gfx/venn/svc/node/quarks/cluster"
-	"gfx.cafe/gfx/venn/svc/shared/services/prom"
+	"github.com/gfx-labs/venn/lib/callcenter"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
+	"github.com/gfx-labs/venn/lib/stores/headstore"
+	"github.com/gfx-labs/venn/svc/node/atoms/election"
+	"github.com/gfx-labs/venn/svc/node/quarks/cluster"
+	"github.com/gfx-labs/venn/svc/shared/services/prom"
 )
 
 type Stalker struct {

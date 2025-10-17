@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"gfx.cafe/gfx/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/config"
 
 	"go.uber.org/multierr"
 )

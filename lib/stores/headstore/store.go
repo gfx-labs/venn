@@ -2,7 +2,7 @@ package headstore
 
 import (
 	"context"
-	"gfx.cafe/gfx/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/config"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )

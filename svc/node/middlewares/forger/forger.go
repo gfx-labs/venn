@@ -8,10 +8,10 @@ import (
 	"github.com/go-faster/jx"
 	"golang.org/x/sync/errgroup"
 
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/ethtypes"
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
-	"gfx.cafe/gfx/venn/lib/subctx"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/ethtypes"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
+	"github.com/gfx-labs/venn/lib/subctx"
 )
 
 type Forger struct {

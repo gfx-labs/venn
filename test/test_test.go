@@ -11,7 +11,7 @@ import (
 	"gfx.cafe/util/go/generic"
 	"github.com/ethereum/go-ethereum/common"
 
-	"gfx.cafe/gfx/venn/lib/ethtypes"
+	"github.com/gfx-labs/venn/lib/ethtypes"
 )
 
 const chain = "zksync"

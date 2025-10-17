@@ -31,15 +31,15 @@ import (
 
 	jrpcjrpcutil "gfx.cafe/open/jrpc/contrib/jrpcutil"
 
-	"gfx.cafe/gfx/venn/lib/callcenter"
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/ratelimit"
-	"gfx.cafe/gfx/venn/lib/subctx"
-	"gfx.cafe/gfx/venn/lib/util"
-	"gfx.cafe/gfx/venn/lib/util/origin"
-	"gfx.cafe/gfx/venn/svc/gateway/quarks/telemetry"
-	"gfx.cafe/gfx/venn/svc/shared/services/prom"
-	"gfx.cafe/gfx/venn/svc/shared/services/redi"
+	"github.com/gfx-labs/venn/lib/callcenter"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/ratelimit"
+	"github.com/gfx-labs/venn/lib/subctx"
+	"github.com/gfx-labs/venn/lib/util"
+	"github.com/gfx-labs/venn/lib/util/origin"
+	"github.com/gfx-labs/venn/svc/gateway/quarks/telemetry"
+	"github.com/gfx-labs/venn/svc/shared/services/prom"
+	"github.com/gfx-labs/venn/svc/shared/services/redi"
 )
 
 type Params struct {

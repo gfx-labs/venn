@@ -12,8 +12,8 @@ import (
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
-	"gfx.cafe/gfx/venn/svc/shared/services/prom"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
+	"github.com/gfx-labs/venn/svc/shared/services/prom"
 	"github.com/asecurityteam/rolling"
 )
 

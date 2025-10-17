@@ -8,9 +8,9 @@ import (
 
 	"go.uber.org/fx"
 
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/election"
-	"gfx.cafe/gfx/venn/svc/shared/services/redi"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/election"
+	"github.com/gfx-labs/venn/svc/shared/services/redi"
 )
 
 type Cluster struct {

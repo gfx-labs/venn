@@ -9,7 +9,7 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"gfx.cafe/gfx/venn/lib/callcenter"
+	"github.com/gfx-labs/venn/lib/callcenter"
 )
 
 func StatusBadge(status callcenter.HealthStatus) templ.Component {

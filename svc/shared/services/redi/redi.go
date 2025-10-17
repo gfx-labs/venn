@@ -10,7 +10,7 @@ import (
 	"github.com/redis/rueidis"
 	"go.uber.org/fx"
 
-	"gfx.cafe/gfx/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/config"
 )
 
 type Redis struct {

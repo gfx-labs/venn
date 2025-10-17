@@ -13,9 +13,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/stores/blockstore"
-	"gfx.cafe/gfx/venn/svc/shared/services/redi"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/stores/blockstore"
+	"github.com/gfx-labs/venn/svc/shared/services/redi"
 )
 
 type Params struct {

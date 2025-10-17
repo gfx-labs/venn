@@ -6,7 +6,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"gfx.cafe/gfx/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/config"
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/bytedance/sonic"
@@ -15,11 +15,11 @@ import (
 	"github.com/go-faster/jx"
 	"go.uber.org/fx"
 
-	"gfx.cafe/gfx/venn/lib/ethtypes"
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
-	"gfx.cafe/gfx/venn/lib/stores/blockstore"
-	"gfx.cafe/gfx/venn/lib/subctx"
-	"gfx.cafe/gfx/venn/svc/node/quarks/cluster"
+	"github.com/gfx-labs/venn/lib/ethtypes"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
+	"github.com/gfx-labs/venn/lib/stores/blockstore"
+	"github.com/gfx-labs/venn/lib/subctx"
+	"github.com/gfx-labs/venn/svc/node/quarks/cluster"
 )
 
 type Chainblock struct {

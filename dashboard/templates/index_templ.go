@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"fmt"
-	"gfx.cafe/gfx/venn/lib/callcenter"
+	"github.com/gfx-labs/venn/lib/callcenter"
 	"strconv"
 	"time"
 )

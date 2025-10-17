@@ -10,9 +10,9 @@ import (
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"go.uber.org/fx"
 
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
-	"gfx.cafe/gfx/venn/lib/subctx"
-	"gfx.cafe/gfx/venn/svc/shared/services/prom"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
+	"github.com/gfx-labs/venn/lib/subctx"
+	"github.com/gfx-labs/venn/svc/shared/services/prom"
 )
 
 type Collector struct {

@@ -6,8 +6,8 @@ import (
 	"net"
 	"net/http"
 
-	"gfx.cafe/gfx/venn/svc/node/middlewares/forger"
-	"gfx.cafe/gfx/venn/svc/shared/services/redi"
+	"github.com/gfx-labs/venn/svc/node/middlewares/forger"
+	"github.com/gfx-labs/venn/svc/shared/services/redi"
 
 	"gfx.cafe/open/jrpc/contrib/jrpcutil"
 	"gfx.cafe/util/go/gotel"
@@ -26,19 +26,19 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/fx"
 
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/ratelimit"
-	"gfx.cafe/gfx/venn/lib/stores/headstore"
-	"gfx.cafe/gfx/venn/lib/subctx"
-	"gfx.cafe/gfx/venn/lib/util"
-	"gfx.cafe/gfx/venn/svc/node/atoms/cacher"
-	"gfx.cafe/gfx/venn/svc/node/atoms/stalker"
-	"gfx.cafe/gfx/venn/svc/node/atoms/subcenter"
-	"gfx.cafe/gfx/venn/svc/node/quarks/cluster"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/ratelimit"
+	"github.com/gfx-labs/venn/lib/stores/headstore"
+	"github.com/gfx-labs/venn/lib/subctx"
+	"github.com/gfx-labs/venn/lib/util"
+	"github.com/gfx-labs/venn/svc/node/atoms/cacher"
+	"github.com/gfx-labs/venn/svc/node/atoms/stalker"
+	"github.com/gfx-labs/venn/svc/node/atoms/subcenter"
+	"github.com/gfx-labs/venn/svc/node/quarks/cluster"
 
-	"gfx.cafe/gfx/venn/dashboard"
-	"gfx.cafe/gfx/venn/svc/node/middlewares/headreplacer"
-	"gfx.cafe/gfx/venn/svc/node/middlewares/promcollect"
+	"github.com/gfx-labs/venn/dashboard"
+	"github.com/gfx-labs/venn/svc/node/middlewares/headreplacer"
+	"github.com/gfx-labs/venn/svc/node/middlewares/promcollect"
 )
 
 type Params struct {

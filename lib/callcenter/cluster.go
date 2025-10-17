@@ -9,8 +9,8 @@ import (
 
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 
-	"gfx.cafe/gfx/venn/lib/jrpcutil"
-	"gfx.cafe/gfx/venn/lib/util"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
+	"github.com/gfx-labs/venn/lib/util"
 )
 
 // Cluster combines multiple remotes and attempts each by priority.

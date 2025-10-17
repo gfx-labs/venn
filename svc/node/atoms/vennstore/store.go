@@ -3,13 +3,13 @@ package vennstore
 import (
 	"log/slog"
 
-	"gfx.cafe/gfx/venn/lib/config"
-	"gfx.cafe/gfx/venn/lib/stores/blockstore"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/stores/blockstore"
 
 	"go.uber.org/fx"
 
-	"gfx.cafe/gfx/venn/svc/node/stores/vennstores/chainblock"
-	"gfx.cafe/gfx/venn/svc/node/stores/vennstores/rediblock"
+	"github.com/gfx-labs/venn/svc/node/stores/vennstores/chainblock"
+	"github.com/gfx-labs/venn/svc/node/stores/vennstores/rediblock"
 )
 
 type Params struct {
