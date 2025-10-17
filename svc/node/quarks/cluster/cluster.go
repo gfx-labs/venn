@@ -43,6 +43,9 @@ type Clusters struct {
 
 	// Middleware instances stored by chain name, then by remote name
 	middlewares map[string]map[string]*RemoteTarget
+
+	// Chain-level BlockLookBack middleware stored by chain name
+	chainLookBack map[string]*blockLookBack.BlockLookBack
 }
 
 type Params struct {
@@ -129,7 +132,8 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 	}
 	mw.Filterer = callcenter.NewFilterer(methods)
 
-	if cfg.MaxBlockLookBack > 0 || chain.MaxBlockLookBack > 0 {
+	// Per-remote lookback (optional, can be more restrictive than chain-level)
+	if cfg.MaxBlockLookBack > 0 {
 		mw.BlockLookBack = blockLookBack.New(chain, cfg, headStore)
 	}
 
@@ -138,8 +142,9 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 
 func New(params Params) (r Result, err error) {
 	r.Clusters = &Clusters{
-		Remotes:     make(map[string]*callcenter.Cluster),
-		middlewares: make(map[string]map[string]*RemoteTarget),
+		Remotes:       make(map[string]*callcenter.Cluster),
+		middlewares:   make(map[string]map[string]*RemoteTarget),
+		chainLookBack: make(map[string]*blockLookBack.BlockLookBack),
 	}
 
 	// Start a background goroutine to update chain health metrics periodically
@@ -167,6 +172,11 @@ func New(params Params) (r Result, err error) {
 		r.Clusters.Remotes[chain.Name] = cluster
 		// Initialize the nested map for this chain
 		r.Clusters.middlewares[chain.Name] = make(map[string]*RemoteTarget)
+
+		// Create chain-level BlockLookBack middleware if configured
+		if chain.MaxBlockLookBack > 0 {
+			r.Clusters.chainLookBack[chain.Name] = blockLookBack.New(chain, nil, params.HeadStore)
+		}
 		for _, cfg := range chain.Remotes {
 			cfg := cfg
 			toclose := make([]io.Closer, 0)
@@ -192,6 +202,7 @@ func New(params Params) (r Result, err error) {
 					remote = mw.RateLimiter.Middleware(remote)
 					remote = mw.Filterer.Middleware(remote)
 
+					// Per-remote BlockLookBack (optional, more restrictive than chain-level)
 					if mw.BlockLookBack != nil {
 						remote = mw.BlockLookBack.Middleware(remote)
 					}
@@ -229,7 +240,14 @@ func (T *Clusters) Middleware(next jrpc.Handler) jrpc.Handler {
 			}
 			return
 		}
-		remote.ServeRPC(w, r)
+
+		// Apply chain-level BlockLookBack middleware if configured
+		var handler jrpc.Handler = remote
+		if lookBack, exists := T.chainLookBack[chain.Name]; exists {
+			handler = lookBack.Middleware(handler)
+		}
+
+		handler.ServeRPC(w, r)
 	})
 }
 

@@ -131,14 +131,14 @@ type Remote struct {
 	Priority int               `json:"priority,omitempty"`
 	Headers  map[string]string `json:"headers,omitempty"`
 
-	HealthCheckIntervalMin Duration `json:"health_check_interval_min,omitempty"`
-	HealthCheckIntervalMax Duration `json:"health_check_interval_max,omitempty"`
+	HealthCheckIntervalMin Duration `json:"health_check_interval_min"`
+	HealthCheckIntervalMax Duration `json:"health_check_interval_max`
 
-	RateLimitBackoff Duration ` json:"rate_limit_backoff,omitempty"`
+	RateLimitBackoff Duration ` json:"rate_limit_backoff"`
 
-	ErrorBackoffMin Duration `json:"error_backoff_min,omitempty"`
+	ErrorBackoffMin Duration `json:"error_backoff_min"`
 
-	ErrorBackoffMax Duration `json:"error_backoff_max,omitempty"`
+	ErrorBackoffMax Duration `json:"error_backoff_max"`
 
 	Filters       []string  `json:"filters,omitempty"`
 	ParsedFilters []*Filter `json:"-"`

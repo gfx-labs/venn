@@ -7,14 +7,14 @@ chains:
 - block_time_seconds: 12
   id: 1
   name: ethereum
-  # max_block_look_back: 1000  # Optional: Maximum blocks to look back from head. 0 or omit for no limit.
+  # max_block_look_back: 1000  # Optional: Chain-level maximum blocks to look back from head (checked before trying any remote). 0 or omit for no limit.
   remotes:
   - filters:
     - geth
     - trace
     name: drpc
     url: https://ethereum.drpc.org
-    # max_block_look_back: 500  # Optional: Override chain-level limit for this remote (more restrictive)
+    # max_block_look_back: 500  # Optional: Per-remote limit (can be more restrictive than chain-level)
 - block_time_seconds: 2
   id: 137
   name: polygon
