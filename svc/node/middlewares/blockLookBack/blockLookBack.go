@@ -32,14 +32,14 @@ func New(chainCfg *config.Chain, remoteCfg *config.Remote, headStore headstore.S
 // getEffectiveLookBack returns the effective lookback limit
 // For chain-level middleware, remoteCfg is nil, so only chain limit is used
 func (m *BlockLookBack) getEffectiveLookBack() int {
-	chainLimit := m.chainCfg.MaxBlockLookBack
+	chainLimit := m.chainCfg.MaxBlockLookback
 
 	// For chain-level middleware (remoteCfg is nil), use chain limit
 	if m.remoteCfg == nil {
 		return chainLimit
 	}
 
-	remoteLimit := m.remoteCfg.MaxBlockLookBack
+	remoteLimit := m.remoteCfg.MaxBlockLookback
 
 	// If both are 0, no limit
 	if chainLimit == 0 && remoteLimit == 0 {

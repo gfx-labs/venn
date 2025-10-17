@@ -256,7 +256,7 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain, headBloc
 
 				// Check if BlockLookBack is configured
 				if target.BlockLookBack != nil {
-					maxBlockLookBack = int64(remoteConfig.MaxBlockLookBack)
+					maxBlockLookBack = int64(remoteConfig.MaxBlockLookback)
 				}
 
 				// Get requests per minute from collector
@@ -281,7 +281,7 @@ func (h *Handler) getRemoteInfos(chainName string, chain *config.Chain, headBloc
 					LatencyMax:       latencyMax,
 					LastError:        lastError,
 					Priority:         priority,
-					MaxBlockLookBack: maxBlockLookBack,
+					MaxBlockLookback: maxBlockLookBack,
 					RequestsPerMin:   requestsPerMin,
 				})
 			}

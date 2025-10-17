@@ -133,7 +133,7 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 	mw.Filterer = callcenter.NewFilterer(methods)
 
 	// Per-remote lookback (optional, can be more restrictive than chain-level)
-	if cfg.MaxBlockLookBack > 0 {
+	if cfg.MaxBlockLookback > 0 {
 		mw.BlockLookBack = blockLookBack.New(chain, cfg, headStore)
 	}
 
@@ -174,7 +174,7 @@ func New(params Params) (r Result, err error) {
 		r.Clusters.middlewares[chain.Name] = make(map[string]*RemoteTarget)
 
 		// Create chain-level BlockLookBack middleware if configured
-		if chain.MaxBlockLookBack > 0 {
+		if chain.MaxBlockLookback > 0 {
 			r.Clusters.chainLookBack[chain.Name] = blockLookBack.New(chain, nil, params.HeadStore)
 		}
 		for _, cfg := range chain.Remotes {

@@ -37,7 +37,7 @@ type RemoteInfo struct {
 	LatencyMax       time.Duration
 	LastError        string
 	Priority         int
-	MaxBlockLookBack int64
+	MaxBlockLookback int64
 	RequestsPerMin   float64
 }
 

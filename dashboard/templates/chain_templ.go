@@ -340,9 +340,9 @@ func RemoteCard(remote RemoteInfo) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if remote.MaxBlockLookBack > 0 {
+		if remote.MaxBlockLookback > 0 {
 			var templ_7745c5c3_Var18 string
-			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", remote.MaxBlockLookBack))
+			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d", remote.MaxBlockLookback))
 			if templ_7745c5c3_Err != nil {
 				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages/chain.templ`, Line: 114, Col: 72}
 			}

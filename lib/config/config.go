@@ -111,7 +111,7 @@ type Chain struct {
 	Stalk              *bool          `json:"stalk,omitempty"`
 	ParsedStalk        bool           `json:"-"`
 	ForgeBlockReceipts bool           `json:"forge_block_receipts,omitempty"`
-	MaxBlockLookBack   int            `json:"max_block_look_back,omitempty"`
+	MaxBlockLookback   int            `json:"max_block_lookback,omitempty"`
 }
 
 type HeadOracles struct {
@@ -132,7 +132,7 @@ type Remote struct {
 	Headers  map[string]string `json:"headers,omitempty"`
 
 	HealthCheckIntervalMin Duration `json:"health_check_interval_min"`
-	HealthCheckIntervalMax Duration `json:"health_check_interval_max`
+	HealthCheckIntervalMax Duration `json:"health_check_interval_max"`
 
 	RateLimitBackoff Duration ` json:"rate_limit_backoff"`
 
@@ -146,7 +146,7 @@ type Remote struct {
 	RateLimit *RemoteRateLimit `json:"ratelimit,omitempty"`
 
 	SendDataAndInput bool `json:"send_data_and_input,omitempty"`
-	MaxBlockLookBack int  `json:"max_block_look_back,omitempty"`
+	MaxBlockLookback int  `json:"max_block_lookback,omitempty"`
 }
 
 type RemoteRateLimit struct {
