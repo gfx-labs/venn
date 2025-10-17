@@ -19,10 +19,7 @@ the original version of venn - named brilliant - dates back to 2021.
 
 ## structure
 
-
 It is an [fx](https://github.com/uber-go/fx) app (it originally wasn't, but was converted, as the firm switched to fx).
-
-the configuration is `hcl`, like terraform, which can be found [here](./lib/config/config.go).
 
 to understand the jsonrpc2 handling and semantics, please see [jrpc](https://gfx.cafe/open/jrpc) and the examples there. this is what powers the ability to interact with a single api, but serve http, websocket, or any other fd or abstract protocol (rabbitmq, nats) seamlessly
 
@@ -49,7 +46,6 @@ now, you can understand the routing. each request will
 5. the actual load balancer, which is a set of remotes.
 
 each request can also ask itself for data, for instance, the forger uses the stalker, caches, and remotes, but that access is handled abstractly, so you get the advantages of the stalker + caching, without worrying about it
-
 
 for instance:
 
