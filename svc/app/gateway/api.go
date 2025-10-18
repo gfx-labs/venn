@@ -327,9 +327,13 @@ func New(p Params) (r Result, err error) {
 					} else {
 						p.Logger.Debug("got request from untrusted remote", "remote", r.RemoteAddr)
 					}
+
+					// Origin validation and CORS handling
 					if len(p.Security.AllowedOrigins) > 0 {
 						o := r.Header.Get("Origin")
 						matched := false
+						matchedOrigin := ""
+
 						for _, v := range p.Security.AllowedOrigins {
 							match, err := origin.Match(o, v)
 							if err != nil {
@@ -338,12 +342,79 @@ func New(p Params) (r Result, err error) {
 							}
 							if match {
 								matched = true
+								matchedOrigin = o
 								break
 							}
 						}
+
 						if !matched {
 							http.Error(w, "origin not allowed", http.StatusForbidden)
 							return
+						}
+
+						// If CORS is enabled and origin matched, set CORS headers
+						if p.Security.CorsEnabled && matchedOrigin != "" {
+							// Set Access-Control-Allow-Origin
+							w.Header().Set("Access-Control-Allow-Origin", matchedOrigin)
+
+							// Set Access-Control-Allow-Credentials if configured
+							if p.Security.CorsAllowCredentials {
+								w.Header().Set("Access-Control-Allow-Credentials", "true")
+							}
+
+							// Set Access-Control-Expose-Headers if configured
+							if len(p.Security.CorsExposeHeaders) > 0 {
+								w.Header().Set("Access-Control-Expose-Headers", strings.Join(p.Security.CorsExposeHeaders, ", "))
+							}
+
+							// Handle preflight OPTIONS request
+							if r.Method == "OPTIONS" {
+								// Set Access-Control-Allow-Methods
+								allowedMethods := p.Security.CorsAllowedMethods
+								if len(allowedMethods) == 0 {
+									// Default to common methods for JSON-RPC
+									allowedMethods = []string{"POST", "GET", "OPTIONS"}
+								}
+								w.Header().Set("Access-Control-Allow-Methods", strings.Join(allowedMethods, ", "))
+
+								// Set Access-Control-Allow-Headers
+								allowedHeaders := p.Security.CorsAllowedHeaders
+								if len(allowedHeaders) == 0 {
+									// Default to common headers
+									allowedHeaders = []string{"Content-Type", "Accept", "Authorization"}
+								}
+								// Also check if client requested specific headers
+								requestedHeaders := r.Header.Get("Access-Control-Request-Headers")
+								if requestedHeaders != "" {
+									// Merge requested headers with allowed headers
+									requestedHeadersList := strings.Split(requestedHeaders, ",")
+									for _, h := range requestedHeadersList {
+										h = strings.TrimSpace(h)
+										found := false
+										for _, ah := range allowedHeaders {
+											if strings.EqualFold(h, ah) {
+												found = true
+												break
+											}
+										}
+										if !found {
+											allowedHeaders = append(allowedHeaders, h)
+										}
+									}
+								}
+								w.Header().Set("Access-Control-Allow-Headers", strings.Join(allowedHeaders, ", "))
+
+								// Set Access-Control-Max-Age
+								maxAge := p.Security.CorsMaxAge
+								if maxAge == 0 {
+									maxAge = 86400 // Default to 24 hours
+								}
+								w.Header().Set("Access-Control-Max-Age", fmt.Sprintf("%d", maxAge))
+
+								// Return 204 No Content for preflight
+								w.WriteHeader(http.StatusNoContent)
+								return
+							}
 						}
 					}
 					next.ServeHTTP(w, r)

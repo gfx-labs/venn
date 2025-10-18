@@ -17,12 +17,26 @@ security:
     - https://*.staging.gfx.town
     - https://*.*.staging.gfx.town
     - '*://localhost:*'
+  # CORS configuration (optional)
+  cors_enabled: true  # Enable CORS headers for matched origins
+  # cors_allowed_methods:  # Optional, defaults to ["POST", "GET", "OPTIONS"]
+  #   - POST
+  #   - GET
+  #   - OPTIONS
+  # cors_allowed_headers:  # Optional, defaults to ["Content-Type", "Accept", "Authorization"]
+  #   - Content-Type
+  #   - Accept
+  #   - Authorization
+  # cors_expose_headers:  # Optional, headers exposed to the browser
+  #   - X-Request-ID
+  # cors_allow_credentials: false  # Optional, defaults to false
+  # cors_max_age: 86400  # Optional, preflight cache duration in seconds (default: 86400 = 24 hours)
 endpoint:
   name: public
   venn_url: http://localhost:8545
   paths:
-    'eip155:1': ethereum
-    'eip155:8453': base
+    eip155-1: ethereum
+    eip155-8453: base
   limits:
     abuse:
       - id: "rps-simple"
