@@ -119,10 +119,10 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 			cfg.RateLimit.Burst,
 		)
 	} else {
-		// default values of 50/100
+		// default values of 500/1000
 		mw.RateLimiter = callcenter.NewRatelimiter(
-			50,
-			100,
+			500,
+			1000,
 		)
 	}
 
