@@ -146,7 +146,7 @@ func ParseNodeConfig(file string, data []byte) (*NodeConfig, error) {
 				vv.HealthCheckIntervalMin = Duration{time.Minute}
 			}
 			if vv.HealthCheckIntervalMax.Duration == 0 {
-				vv.HealthCheckIntervalMax = Duration{time.Hour}
+				vv.HealthCheckIntervalMax = Duration{15 * time.Minute}
 			}
 			if vv.RateLimitBackoff.Duration == 0 {
 				vv.RateLimitBackoff = Duration{5 * time.Second}
