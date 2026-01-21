@@ -6,20 +6,23 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/gfx-labs/venn/lib/config"
-	"github.com/gfx-labs/venn/lib/ethtypes"
-	"github.com/gfx-labs/venn/lib/stores/headstore"
-	"github.com/gfx-labs/venn/lib/subctx"
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/ethtypes"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
+	"github.com/gfx-labs/venn/lib/stores/headstore"
+	"github.com/gfx-labs/venn/lib/subctx"
 	"go.uber.org/fx"
+	"golang.org/x/sync/singleflight"
 )
 
 // HeadReplacer is a middleware that replaces "latest" block tags with actual block numbers
 type HeadReplacer struct {
 	headstore headstore.Store
 	chains    map[string]*config.Chain
+	sf        singleflight.Group
 }
 
 type Params struct {
@@ -137,7 +140,23 @@ func (h *HeadReplacer) Middleware(next jrpc.Handler) jrpc.Handler {
 			_ = w.Send(strconv.Itoa(chain.Id), nil)
 			return
 		case "eth_blockNumber":
-			_ = w.Send(h.headstore.Get(r.Context(), chain))
+			head, err := h.headstore.Get(r.Context(), chain)
+			if err != nil {
+				_ = w.Send(nil, err)
+				return
+			}
+			if head != 0 {
+				_ = w.Send(head, nil)
+				return
+			}
+			// head is 0 (stalker disabled), passthrough to remotes with singleflight
+			key := chain.Name + ":eth_blockNumber"
+			result, err, _ := h.sf.Do(key, func() (any, error) {
+				var interceptor jrpcutil.Interceptor
+				next.ServeRPC(&interceptor, r)
+				return interceptor.Result, interceptor.Error
+			})
+			_ = w.Send(result, err)
 			return
 		case "eth_getBlockByNumber":
 			newReq, err := h.ReplaceBlockNumberInRequest(r.Context(), r, 0)
