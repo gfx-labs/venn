@@ -49,6 +49,10 @@ func New(p Params) (r Result, err error) {
 func (h *HeadReplacer) toNumericBlockNumber(ctx context.Context, chain *config.Chain, blockNumber *ethtypes.BlockNumber) (value ethtypes.BlockNumber, passthrough bool, err error) {
 	switch *blockNumber {
 	case ethtypes.LatestBlockNumber:
+		// If stalker is disabled, always passthrough to remotes
+		if !chain.ParsedStalk {
+			return 0, true, nil
+		}
 		head, err := h.headstore.Get(ctx, chain)
 		if err != nil {
 			return 0, true, err
@@ -140,23 +144,18 @@ func (h *HeadReplacer) Middleware(next jrpc.Handler) jrpc.Handler {
 			_ = w.Send(strconv.Itoa(chain.Id), nil)
 			return
 		case "eth_blockNumber":
-			head, err := h.headstore.Get(r.Context(), chain)
-			if err != nil {
-				_ = w.Send(nil, err)
+			// If stalker is disabled, passthrough to remotes with singleflight
+			if !chain.ParsedStalk {
+				key := chain.Name + ":eth_blockNumber"
+				result, err, _ := h.sf.Do(key, func() (any, error) {
+					var interceptor jrpcutil.Interceptor
+					next.ServeRPC(&interceptor, r)
+					return interceptor.Result, interceptor.Error
+				})
+				_ = w.Send(result, err)
 				return
 			}
-			if head != 0 {
-				_ = w.Send(head, nil)
-				return
-			}
-			// head is 0 (stalker disabled), passthrough to remotes with singleflight
-			key := chain.Name + ":eth_blockNumber"
-			result, err, _ := h.sf.Do(key, func() (any, error) {
-				var interceptor jrpcutil.Interceptor
-				next.ServeRPC(&interceptor, r)
-				return interceptor.Result, interceptor.Error
-			})
-			_ = w.Send(result, err)
+			_ = w.Send(h.headstore.Get(r.Context(), chain))
 			return
 		case "eth_getBlockByNumber":
 			newReq, err := h.ReplaceBlockNumberInRequest(r.Context(), r, 0)
