@@ -80,7 +80,7 @@ func (T *Backer) error() {
 	if !T.happy {
 		return
 	}
-	T.timeout = max(T.errorMaxTimeout, T.timeout*2)
+	T.timeout = min(T.errorMaxTimeout, T.timeout*2)
 	T.happy = false
 	T.timer.Reset(T.timeout)
 }
