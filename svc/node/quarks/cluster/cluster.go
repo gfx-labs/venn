@@ -7,11 +7,11 @@ import (
 	"maps"
 	"time"
 
+	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
+	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/gfx-labs/venn/lib/stores/headstore"
 	"github.com/gfx-labs/venn/lib/subctx"
 	"github.com/gfx-labs/venn/svc/shared/services/prom"
-	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 
 	"github.com/gfx-labs/venn/svc/node/middlewares/blockLookBack"
 
@@ -103,14 +103,6 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 		Validator: callcenter.NewValidator(
 			max(time.Minute, time.Duration(float64(time.Second)*2*chain.BlockTimeSeconds)),
 		),
-		Doctor: callcenter.NewDoctor(
-			log.With("remote", cfg.Name, "chain", chain.Name),
-			chain.Id,
-			chain.Name,
-			cfg.Name,
-			cfg.HealthCheckIntervalMin.Duration,
-			cfg.HealthCheckIntervalMax.Duration,
-		),
 	}
 
 	if cfg.RateLimit != nil {
@@ -136,6 +128,19 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 	if cfg.MaxBlockLookback > 0 {
 		mw.BlockLookBack = blockLookBack.New(chain, cfg, headStore)
 	}
+
+	// The Doctor receives the proxier directly as its probe so health checks
+	// bypass application middleware (Validator, Backer, etc.) and test the
+	// actual remote connection.
+	mw.Doctor = callcenter.NewDoctor(
+		log.With("remote", cfg.Name, "chain", chain.Name),
+		chain.Id,
+		chain.Name,
+		cfg.Name,
+		cfg.HealthCheckIntervalMin.Duration,
+		cfg.HealthCheckIntervalMax.Duration,
+		proxier,
+	)
 
 	return mw, proxier
 }

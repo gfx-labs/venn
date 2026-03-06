@@ -12,9 +12,9 @@ import (
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	"github.com/asecurityteam/rolling"
 	"github.com/gfx-labs/venn/lib/jrpcutil"
 	"github.com/gfx-labs/venn/svc/shared/services/prom"
-	"github.com/asecurityteam/rolling"
 )
 
 type HealthStatus int
@@ -36,6 +36,7 @@ type Doctor struct {
 	minInterval time.Duration
 	maxInterval time.Duration
 	remote      Remote
+	probe       Remote // direct connection for health checks, bypasses middleware
 
 	log *slog.Logger
 
@@ -49,7 +50,7 @@ type Doctor struct {
 	mu            sync.Mutex
 }
 
-func NewDoctor(log *slog.Logger, chainId int, chainName, remoteName string, minInterval, maxInterval time.Duration) *Doctor {
+func NewDoctor(log *slog.Logger, chainId int, chainName, remoteName string, minInterval, maxInterval time.Duration, probe Remote) *Doctor {
 	return &Doctor{
 		chainId:       chainId,
 		chainName:     chainName,
@@ -57,6 +58,7 @@ func NewDoctor(log *slog.Logger, chainId int, chainName, remoteName string, minI
 		minInterval:   minInterval,
 		maxInterval:   maxInterval,
 		log:           log,
+		probe:         probe,
 		interval:      minInterval,
 		latencyWindow: rolling.NewTimePolicy(rolling.NewWindow(180), 5*time.Second), // 15-minute window: 180 buckets × 5 seconds each
 	}
@@ -106,9 +108,11 @@ func (T *Doctor) check() {
 		Remote: T.remoteName,
 	}
 
-	// First check eth_blockNumber to ensure the node is syncing
+	// First check eth_blockNumber to ensure the node is syncing.
+	// Use the probe (direct connection to remote) to bypass application middleware
+	// (Validator, Backer, etc.) that could incorrectly block the health check.
 	var blockNumber hexutil.Uint64
-	err := jrpcutil.Do(ctx, T.remote, &blockNumber, "eth_blockNumber", []any{})
+	err := jrpcutil.Do(ctx, T.probe, &blockNumber, "eth_blockNumber", []any{})
 	if err != nil {
 		T.mu.Lock()
 		T.log.Error("remote failed health check", "chain", T.chainName, "remote", T.remoteName, "method", "eth_blockNumber", "error", err)
@@ -128,7 +132,7 @@ func (T *Doctor) check() {
 
 	// Then verify chain ID
 	var chainId hexutil.Uint64
-	err = jrpcutil.Do(ctx, T.remote, &chainId, "eth_chainId", []any{})
+	err = jrpcutil.Do(ctx, T.probe, &chainId, "eth_chainId", []any{})
 
 	// Record health check latency
 	checkLatency := time.Since(start)
