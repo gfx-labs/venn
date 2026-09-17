@@ -128,8 +128,9 @@ type HeadOracles struct {
 }
 
 type Filter struct {
-	Name    string          ` json:"name"`
-	Methods map[string]bool ` json:"methods,omitempty"`
+	Name      string          ` json:"name"`
+	Methods   map[string]bool ` json:"methods,omitempty"`
+	Whitelist bool            `json:"whitelist,omitempty"`
 }
 
 type Remote struct {

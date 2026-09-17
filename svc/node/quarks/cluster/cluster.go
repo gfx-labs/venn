@@ -118,11 +118,7 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 		)
 	}
 
-	methods := make(map[string]bool)
-	for _, filter := range cfg.ParsedFilters {
-		maps.Copy(methods, filter.Methods)
-	}
-	mw.Filterer = callcenter.NewFilterer(methods)
+	mw.Filterer = newRemoteFilterer(cfg.ParsedFilters)
 
 	// Per-remote lookback (optional, can be more restrictive than chain-level)
 	if cfg.MaxBlockLookback > 0 {
@@ -143,6 +139,25 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 	)
 
 	return mw, proxier
+}
+
+// Whitelists compose separately from legacy filters so a legacy true entry
+// cannot grant access to a method outside the whitelist. Within each group,
+// later filters override earlier entries, matching existing filter semantics.
+func newRemoteFilterer(filters []*config.Filter) *callcenter.Filterer {
+	methods := make(map[string]bool)
+	var whitelist map[string]bool
+	for _, filter := range filters {
+		if filter.Whitelist {
+			if whitelist == nil {
+				whitelist = make(map[string]bool)
+			}
+			maps.Copy(whitelist, filter.Methods)
+		} else {
+			maps.Copy(methods, filter.Methods)
+		}
+	}
+	return callcenter.NewFiltererWithWhitelist(methods, whitelist)
 }
 
 func New(params Params) (r Result, err error) {
