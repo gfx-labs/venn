@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"gfx.cafe/open/jrpc"
+	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/gfx-labs/venn/lib/callcenter"
 	"github.com/gfx-labs/venn/lib/config"
 	"github.com/gfx-labs/venn/lib/ethtypes"
 	"github.com/gfx-labs/venn/lib/stores/headstore"
 	"github.com/gfx-labs/venn/lib/subctx"
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 )
 
 // BlockLookBack is a middleware that prevents requests for blocks that are too old

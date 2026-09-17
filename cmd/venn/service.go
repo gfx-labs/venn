@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gfx-labs/venn/lib/config"
-	"github.com/gfx-labs/venn/lib/jrpcutil"
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/contrib/extension/subscription"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/jrpcutil"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/fx"
 )

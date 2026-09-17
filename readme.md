@@ -17,6 +17,45 @@ the original version of venn - named brilliant - dates back to 2021.
 
 # design notes / overview
 
+## Remote method filters
+
+Filters are default-allow unless `whitelist: true` is set. Existing filters keep
+their behavior: `false` denies a method, while unlisted methods are allowed.
+A whitelist only permits methods explicitly set to `true`, including denying
+unknown/custom methods. An empty whitelist denies all application requests.
+
+For a remote that should serve only recent logs:
+
+```yaml
+filters:
+  - name: logs-only
+    whitelist: true
+    methods:
+      eth_getLogs: true
+chains:
+  - name: ethereum
+    id: 1
+    block_time_seconds: 12
+    remotes:
+      - name: recent-logs
+        url: https://example.com/rpc
+        filters: [logs-only]
+        max_block_lookback: 9000
+```
+
+When multiple whitelist filters are attached, their method maps are merged in
+the remote's filter order, with later entries overriding earlier ones. Legacy
+filters are merged separately in the same order. A legacy `false` can deny a
+whitelisted method, but a legacy `true` cannot widen a whitelist. Requests
+rejected by a method filter can fall back to other remotes in the cluster.
+
+Health probes bypass application filters and still call `eth_blockNumber` and
+`eth_chainId`. The lookback limit restricts historical requests on this remote,
+not the entire chain. It does not detect a provider's retention automatically.
+
+Deploy a Venn binary/image with whitelist support before enabling this setting.
+Older versions ignore the field and would treat the filter as default-allow.
+
 ## structure
 
 It is an [fx](https://github.com/uber-go/fx) app (it originally wasn't, but was converted, as the firm switched to fx).

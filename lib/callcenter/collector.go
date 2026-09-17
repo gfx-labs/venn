@@ -5,9 +5,9 @@ import (
 
 	"gfx.cafe/open/jrpc"
 
+	"github.com/asecurityteam/rolling"
 	"github.com/gfx-labs/venn/lib/jrpcutil"
 	"github.com/gfx-labs/venn/svc/shared/services/prom"
-	"github.com/asecurityteam/rolling"
 )
 
 // Collector collects prometheus stats for this particular remote.
