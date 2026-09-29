@@ -28,6 +28,7 @@ import (
 type RemoteTarget struct {
 	BaseProxy     *callcenter.Proxier
 	InputData     *callcenter.InputData
+	ArbTrace      *callcenter.ArbTrace
 	Collector     *callcenter.Collector
 	Logger        *callcenter.Logger
 	Backer        *callcenter.Backer
@@ -120,6 +121,13 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 
 	mw.Filterer = newRemoteFilterer(cfg.ParsedFilters)
 
+	// Arbitrum Nitro serves the parity trace namespace as arbtrace_, so trace_
+	// calls are rewritten for it by default. An upstream that grows real trace_
+	// support opts out with disable_arbtrace rather than being special cased.
+	if callcenter.ArbitrumChainIds[chain.Id] && !cfg.DisableArbtrace {
+		mw.ArbTrace = &callcenter.ArbTrace{}
+	}
+
 	// Per-remote lookback (optional, can be more restrictive than chain-level)
 	if cfg.MaxBlockLookback > 0 {
 		mw.BlockLookBack = blockLookBack.New(chain, cfg, headStore)
@@ -209,6 +217,14 @@ func New(params Params) (r Result, err error) {
 
 					// Now build the middleware chain
 					var remote jrpc.Handler = proxier
+
+					// Innermost, so everything above still sees the caller's
+					// trace_ spelling: the Filterer allowlist and the Collector
+					// metrics stay keyed on trace_, and only the bytes on the
+					// wire to the upstream carry arbtrace_.
+					if mw.ArbTrace != nil {
+						remote = mw.ArbTrace.Middleware(remote)
+					}
 
 					if mw.InputData != nil {
 						remote = mw.InputData.Middleware(remote)
