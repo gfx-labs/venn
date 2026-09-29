@@ -1,4 +1,4 @@
-defaultBaseImage: cgr.dev/chainguard/bash
+defaultBaseImage: chainguard/bash:latest
 
 builds:
   - id: venn

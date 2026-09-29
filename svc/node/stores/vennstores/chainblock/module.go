@@ -6,12 +6,12 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/gfx-labs/venn/lib/config"
 	"gfx.cafe/open/jrpc"
 	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/bytedance/sonic"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gfx-labs/venn/lib/config"
 	"github.com/go-faster/jx"
 	"go.uber.org/fx"
 

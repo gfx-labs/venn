@@ -1,8 +1,8 @@
 package callcenter
 
 import (
-	"github.com/gfx-labs/venn/lib/config"
 	"gfx.cafe/open/jrpc"
+	"github.com/gfx-labs/venn/lib/config"
 )
 
 // RemoteWithConfig holds a handler along with its configuration

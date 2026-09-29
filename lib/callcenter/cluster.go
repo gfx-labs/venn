@@ -92,7 +92,7 @@ func (T *Cluster) ServeRPC(w jsonrpc.ResponseWriter, r *jsonrpc.Request) {
 			if icept.Error != nil {
 
 				// check if error is a user error
-				if util.IsUserError(icept.Error) {
+				if !errors.Is(icept.Error, ErrMethodNotAllowed) && util.IsUserError(icept.Error) {
 					_ = w.Send(nil, icept.Error)
 					return
 				}

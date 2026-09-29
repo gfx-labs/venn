@@ -7,11 +7,11 @@ import (
 	"maps"
 	"time"
 
+	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
+	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/gfx-labs/venn/lib/stores/headstore"
 	"github.com/gfx-labs/venn/lib/subctx"
 	"github.com/gfx-labs/venn/svc/shared/services/prom"
-	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 
 	"github.com/gfx-labs/venn/svc/node/middlewares/blockLookBack"
 
@@ -103,14 +103,6 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 		Validator: callcenter.NewValidator(
 			max(time.Minute, time.Duration(float64(time.Second)*2*chain.BlockTimeSeconds)),
 		),
-		Doctor: callcenter.NewDoctor(
-			log.With("remote", cfg.Name, "chain", chain.Name),
-			chain.Id,
-			chain.Name,
-			cfg.Name,
-			cfg.HealthCheckIntervalMin.Duration,
-			cfg.HealthCheckIntervalMax.Duration,
-		),
 	}
 
 	if cfg.RateLimit != nil {
@@ -126,18 +118,46 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 		)
 	}
 
-	methods := make(map[string]bool)
-	for _, filter := range cfg.ParsedFilters {
-		maps.Copy(methods, filter.Methods)
-	}
-	mw.Filterer = callcenter.NewFilterer(methods)
+	mw.Filterer = newRemoteFilterer(cfg.ParsedFilters)
 
 	// Per-remote lookback (optional, can be more restrictive than chain-level)
 	if cfg.MaxBlockLookback > 0 {
 		mw.BlockLookBack = blockLookBack.New(chain, cfg, headStore)
 	}
 
+	// The Doctor receives the proxier directly as its probe so health checks
+	// bypass application middleware (Validator, Backer, etc.) and test the
+	// actual remote connection.
+	mw.Doctor = callcenter.NewDoctor(
+		log.With("remote", cfg.Name, "chain", chain.Name),
+		chain.Id,
+		chain.Name,
+		cfg.Name,
+		cfg.HealthCheckIntervalMin.Duration,
+		cfg.HealthCheckIntervalMax.Duration,
+		proxier,
+	)
+
 	return mw, proxier
+}
+
+// Whitelists compose separately from legacy filters so a legacy true entry
+// cannot grant access to a method outside the whitelist. Within each group,
+// later filters override earlier entries, matching existing filter semantics.
+func newRemoteFilterer(filters []*config.Filter) *callcenter.Filterer {
+	methods := make(map[string]bool)
+	var whitelist map[string]bool
+	for _, filter := range filters {
+		if filter.Whitelist {
+			if whitelist == nil {
+				whitelist = make(map[string]bool)
+			}
+			maps.Copy(whitelist, filter.Methods)
+		} else {
+			maps.Copy(methods, filter.Methods)
+		}
+	}
+	return callcenter.NewFiltererWithWhitelist(methods, whitelist)
 }
 
 func New(params Params) (r Result, err error) {

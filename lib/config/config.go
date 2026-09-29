@@ -42,12 +42,12 @@ type Security struct {
 	AllowedOrigins []string `json:"allowed_origins,omitempty"`
 
 	// CORS configuration
-	CorsEnabled        bool     `json:"cors_enabled,omitempty"`
-	CorsAllowedMethods []string `json:"cors_allowed_methods,omitempty"`
-	CorsAllowedHeaders []string `json:"cors_allowed_headers,omitempty"`
-	CorsExposeHeaders  []string `json:"cors_expose_headers,omitempty"`
-	CorsAllowCredentials bool   `json:"cors_allow_credentials,omitempty"`
-	CorsMaxAge         int      `json:"cors_max_age,omitempty"` // in seconds
+	CorsEnabled          bool     `json:"cors_enabled,omitempty"`
+	CorsAllowedMethods   []string `json:"cors_allowed_methods,omitempty"`
+	CorsAllowedHeaders   []string `json:"cors_allowed_headers,omitempty"`
+	CorsExposeHeaders    []string `json:"cors_expose_headers,omitempty"`
+	CorsAllowCredentials bool     `json:"cors_allow_credentials,omitempty"`
+	CorsMaxAge           int      `json:"cors_max_age,omitempty"` // in seconds
 }
 
 type EndpointSpec struct {
@@ -128,8 +128,9 @@ type HeadOracles struct {
 }
 
 type Filter struct {
-	Name    string          ` json:"name"`
-	Methods map[string]bool ` json:"methods,omitempty"`
+	Name      string          ` json:"name"`
+	Methods   map[string]bool ` json:"methods,omitempty"`
+	Whitelist bool            `json:"whitelist,omitempty"`
 }
 
 type Remote struct {

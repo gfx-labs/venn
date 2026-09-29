@@ -17,7 +17,7 @@ func TestRemoteHealthMetrics(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 
 	// Create a doctor to test metrics integration
-	doctor := callcenter.NewDoctor(logger, 1, "test-chain", "test-remote", 5*time.Second, 30*time.Second)
+	doctor := callcenter.NewDoctor(logger, 1, "test-chain", "test-remote", 5*time.Second, 30*time.Second, nil)
 
 	// Verify doctor has correct metadata
 	if doctor.GetChainName() != "test-chain" {
