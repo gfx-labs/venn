@@ -2,8 +2,8 @@ package callcenter
 
 import (
 	"fmt"
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 	"log/slog"
 	"sync"
 	"time"

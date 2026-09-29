@@ -1,7 +1,7 @@
 package callcenter
 
 import (
-	"gfx.cafe/open/jrpc"
+	"github.com/gfx-labs/jrpc"
 	"golang.org/x/time/rate"
 )
 

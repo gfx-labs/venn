@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"strings"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/contrib/extension/subscription"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/bytedance/sonic"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/contrib/extension/subscription"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 )
 
 type Proxier struct {

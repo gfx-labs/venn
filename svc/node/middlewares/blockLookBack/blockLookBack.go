@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 	"github.com/gfx-labs/venn/lib/callcenter"
 	"github.com/gfx-labs/venn/lib/config"
 	"github.com/gfx-labs/venn/lib/ethtypes"

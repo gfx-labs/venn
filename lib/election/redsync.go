@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gfx.cafe/util/go/fxplus"
+	"github.com/gfx-labs/utilgo/fxplus"
 	"github.com/go-redsync/redsync/v4"
 	"github.com/go-redsync/redsync/v4/redis/goredis/v9"
 	"github.com/google/uuid"

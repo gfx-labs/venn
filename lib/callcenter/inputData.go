@@ -3,8 +3,8 @@ package callcenter
 import (
 	"encoding/json"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 )
 
 type InputData struct {

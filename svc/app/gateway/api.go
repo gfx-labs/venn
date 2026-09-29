@@ -12,7 +12,7 @@ import (
 
 	"go4.org/netipx"
 
-	"gfx.cafe/util/go/gotel"
+	"github.com/gfx-labs/utilgo/gotel"
 	"github.com/redis/rueidis"
 	"github.com/redis/rueidis/rueidislimiter"
 	"github.com/riandyrn/otelchi"
@@ -21,15 +21,15 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/contrib/codecs"
-	"gfx.cafe/open/jrpc/contrib/extension/subscription"
-	"gfx.cafe/open/jrpc/contrib/jmux"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/contrib/codecs"
+	"github.com/gfx-labs/jrpc/contrib/extension/subscription"
+	"github.com/gfx-labs/jrpc/contrib/jmux"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/fx"
 
-	jrpcjrpcutil "gfx.cafe/open/jrpc/contrib/jrpcutil"
+	jrpcjrpcutil "github.com/gfx-labs/jrpc/contrib/jrpcutil"
 
 	"github.com/gfx-labs/venn/lib/callcenter"
 	"github.com/gfx-labs/venn/lib/config"

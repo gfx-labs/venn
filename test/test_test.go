@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"testing"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/util/go/generic"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/utilgo/generic"
 
 	"github.com/gfx-labs/venn/lib/ethtypes"
 )

@@ -1,6 +1,6 @@
 package callcenter
 
-import "gfx.cafe/open/jrpc"
+import "github.com/gfx-labs/jrpc"
 
 type Remote interface {
 	jrpc.Handler

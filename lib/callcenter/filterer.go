@@ -1,7 +1,7 @@
 package callcenter
 
 import (
-	"gfx.cafe/open/jrpc"
+	"github.com/gfx-labs/jrpc"
 )
 
 // Filterer makes sure only certain requests can be made to a particular remote.

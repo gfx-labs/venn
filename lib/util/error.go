@@ -9,8 +9,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"gfx.cafe/open/jrpc/contrib/extension/subscription"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/gfx-labs/jrpc/contrib/extension/subscription"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 )
 
 var ErrChainNotFound = errors.New("chain not found")

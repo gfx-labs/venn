@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"gfx.cafe/util/go/fxplus"
+	"github.com/gfx-labs/utilgo/fxplus"
 	"github.com/gfx-labs/venn/lib/config"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"

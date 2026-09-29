@@ -4,9 +4,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	"gfx.cafe/open/jrpc/contrib/extension/subscription"
-	"gfx.cafe/util/go/fxplus"
-	"gfx.cafe/util/go/gotel"
+	"github.com/gfx-labs/jrpc/contrib/extension/subscription"
+	"github.com/gfx-labs/utilgo/fxplus"
+	"github.com/gfx-labs/utilgo/gotel"
 	"github.com/gfx-labs/venn/lib/config"
 	"github.com/gfx-labs/venn/svc/app/node"
 	"github.com/gfx-labs/venn/svc/node/atoms/cacher"

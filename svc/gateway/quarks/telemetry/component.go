@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	"gfx.cafe/open/jrpc/pkg/jjson"
+	"github.com/gfx-labs/jrpc/pkg/jjson"
 	"github.com/gfx-labs/venn/lib/config"
 	"github.com/gfx-labs/venn/svc/gateway/services/gnat"
 	"github.com/nats-io/nats.go/jetstream"

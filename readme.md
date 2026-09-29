@@ -60,7 +60,7 @@ Older versions ignore the field and would treat the filter as default-allow.
 
 It is an [fx](https://github.com/uber-go/fx) app (it originally wasn't, but was converted, as the firm switched to fx).
 
-to understand the jsonrpc2 handling and semantics, please see [jrpc](https://gfx.cafe/open/jrpc) and the examples there. this is what powers the ability to interact with a single api, but serve http, websocket, or any other fd or abstract protocol (rabbitmq, nats) seamlessly
+to understand the jsonrpc2 handling and semantics, please see [jrpc](https://github.com/gfx-labs/jrpc) and the examples there. this is what powers the ability to interact with a single api, but serve http, websocket, or any other fd or abstract protocol (rabbitmq, nats) seamlessly
 
 the primary entrypoint for the api handler is [here](./svc/handler/api.go). if you are familiar with chi, or go stdlib http handling, then this should be rather familiar to you.
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"math"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 	"golang.org/x/sync/semaphore"
 )
 

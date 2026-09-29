@@ -6,9 +6,9 @@ import (
 	"github.com/gfx-labs/venn/lib/config"
 	"sync"
 
-	"gfx.cafe/util/go/generic"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gfx-labs/utilgo/generic"
 	"github.com/hashicorp/golang-lru/v2/simplelru"
 )
 
