@@ -3,8 +3,8 @@ package util
 import (
 	"strings"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 )
 
 // MethodValidationMiddleware returns a middleware that validates method names.

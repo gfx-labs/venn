@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/contrib/extension/subscription"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/contrib/extension/subscription"
 	"github.com/gfx-labs/venn/lib/config"
 	"github.com/gfx-labs/venn/lib/jrpcutil"
 	"github.com/go-chi/chi/v5"

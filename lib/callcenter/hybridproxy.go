@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/contrib/codecs/websocket"
-	"gfx.cafe/open/jrpc/contrib/extension/subscription"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/contrib/codecs/websocket"
+	"github.com/gfx-labs/jrpc/contrib/extension/subscription"
 	"github.com/valyala/bytebufferpool"
 )
 

@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"gfx.cafe/open/jrpc"
+	"github.com/gfx-labs/jrpc"
 
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/bytedance/sonic"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 	"github.com/go-faster/jx"
 
 	"github.com/gfx-labs/venn/lib/ethtypes"

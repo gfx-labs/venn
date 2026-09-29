@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 	"github.com/redis/rueidis/rueidislimiter"
 )
 

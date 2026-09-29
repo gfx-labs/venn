@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 	"go.uber.org/fx"
 
 	"github.com/gfx-labs/venn/lib/jrpcutil"

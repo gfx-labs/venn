@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"math"
 
-	"gfx.cafe/util/go/generic"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gfx-labs/utilgo/generic"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 

@@ -7,9 +7,9 @@ import (
 	"github.com/gfx-labs/venn/lib/subctx"
 	"log/slog"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/contrib/extension/subscription"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/contrib/extension/subscription"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 	"github.com/go-faster/jx"
 	"go.uber.org/fx"
 

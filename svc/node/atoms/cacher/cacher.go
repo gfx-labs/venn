@@ -8,10 +8,10 @@ import (
 
 	"github.com/gfx-labs/venn/lib/subctx"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 	"github.com/go-faster/jx"
 	"go.uber.org/fx"
 

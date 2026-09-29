@@ -1,6 +1,6 @@
 package callcenter
 
-import "gfx.cafe/open/jrpc/pkg/jsonrpc"
+import "github.com/gfx-labs/jrpc/pkg/jsonrpc"
 
 var (
 	ErrRatelimited         = jsonrpc.NewInternalError("remote is rate limited")

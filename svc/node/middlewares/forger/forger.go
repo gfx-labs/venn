@@ -3,8 +3,8 @@ package forger
 import (
 	"bytes"
 	"encoding/json"
-	"gfx.cafe/open/jrpc"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gfx-labs/jrpc"
 	"github.com/go-faster/jx"
 	"golang.org/x/sync/errgroup"
 

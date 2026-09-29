@@ -7,7 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 
 	"github.com/gfx-labs/venn/lib/jrpcutil"
 	"github.com/gfx-labs/venn/lib/util"

@@ -3,7 +3,7 @@ package callcenter
 import (
 	"time"
 
-	"gfx.cafe/open/jrpc"
+	"github.com/gfx-labs/jrpc"
 
 	"github.com/asecurityteam/rolling"
 	"github.com/gfx-labs/venn/lib/jrpcutil"

@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"gfx.cafe/open/jrpc"
-	"gfx.cafe/open/jrpc/pkg/jsonrpc"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gfx-labs/jrpc"
+	"github.com/gfx-labs/jrpc/pkg/jsonrpc"
 
 	"github.com/asecurityteam/rolling"
 	"github.com/gfx-labs/venn/lib/jrpcutil"
