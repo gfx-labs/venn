@@ -25,7 +25,6 @@ require (
 	github.com/redis/go-redis/v9 v9.14.0
 	github.com/redis/rueidis v1.0.67
 	github.com/redis/rueidis/rueidislimiter v1.0.67
-	github.com/riandyrn/otelchi v0.12.2
 	github.com/stretchr/testify v1.11.1
 	github.com/valyala/bytebufferpool v1.0.0
 	github.com/wasilibs/go-re2 v1.10.0
@@ -58,7 +57,6 @@ require (
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gfx-labs/gotoprom v0.1.0
 	github.com/gfx-labs/jrpc v0.11.0
 	github.com/gfx-labs/sse v0.0.0-20241016074208-406bd1302230 // indirect
@@ -94,10 +92,10 @@ require (
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.38.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.38.0 // indirect
-	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.38.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.38.0
+	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.38.0
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.38.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.38.0
 	go.opentelemetry.io/proto/otlp v1.7.1 // indirect
 	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect

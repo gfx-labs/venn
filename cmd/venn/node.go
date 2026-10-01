@@ -6,8 +6,8 @@ import (
 
 	"github.com/gfx-labs/jrpc/contrib/extension/subscription"
 	"github.com/gfx-labs/utilgo/fxplus"
-	"github.com/gfx-labs/utilgo/gotel"
 	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/vtrace"
 	"github.com/gfx-labs/venn/svc/app/node"
 	"github.com/gfx-labs/venn/svc/node/atoms/cacher"
 	"github.com/gfx-labs/venn/svc/node/atoms/election"
@@ -82,7 +82,7 @@ func (o *StartNode) Run() error {
 		),
 		// OTEL tracing
 		fx.Provide(
-			gotel.NewTraceProvider,
+			vtrace.NewTraceProvider,
 		),
 		fx.Invoke(
 			fxplus.StatLogger,
