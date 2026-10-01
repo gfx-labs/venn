@@ -2,22 +2,16 @@ package node
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 
 	"github.com/gfx-labs/venn/svc/node/middlewares/forger"
 	"github.com/gfx-labs/venn/svc/shared/services/redi"
 
-	"github.com/gfx-labs/jrpc/contrib/jrpcutil"
-	"github.com/gfx-labs/utilgo/gotel"
+	"github.com/gfx-labs/venn/lib/vtrace"
 	"github.com/redis/rueidis"
 	"github.com/redis/rueidis/rueidislimiter"
-	"github.com/riandyrn/otelchi"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/gfx-labs/jrpc"
 	"github.com/gfx-labs/jrpc/contrib/codecs"
@@ -69,7 +63,7 @@ type Params struct {
 
 	// provide subscriptions like eth_subscribe
 	Subcenter     *subcenter.Subcenter
-	TraceProvider *gotel.TraceProvider `optional:"true"`
+	TraceProvider *vtrace.TraceProvider `optional:"true"`
 }
 
 type Result struct {
@@ -129,33 +123,10 @@ func New(p Params) (r Result, err error) {
 	// waiter is last before otel tracing
 	middlewares = append(middlewares, waiter.Middleware)
 	// otel tracing
-	middlewares = append(middlewares, func(next jrpc.Handler) jrpc.Handler {
-		tracer := otel.Tracer("jrpc")
-
-		fn := jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
-			chain, _ := subctx.GetChain(req.Context())
-
-			ctx, span := tracer.Start(req.Context(), req.Method,
-				trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(
-					attribute.String("method", req.Method),
-					attribute.String("params", string(req.Params)),
-					attribute.String("chain", chain.Name)))
-			defer span.End()
-
-			ew := &jrpcutil.ErrorRecorder{
-				ResponseWriter: w,
-			}
-
-			// execute next http handler
-			next.ServeRPC(w, req.WithContext(ctx))
-
-			if err := ew.Error(); err != nil {
-				span.SetStatus(codes.Error, fmt.Sprintf("error: %s", err))
-				span.RecordError(err)
-			}
-		})
-		return fn
-	})
+	middlewares = append(middlewares, vtrace.RPCMiddleware(func(req *jsonrpc.Request) []attribute.KeyValue {
+		chain, _ := subctx.GetChain(req.Context())
+		return []attribute.KeyValue{attribute.String("chain", chain.Name)}
+	}))
 
 	rootJrpcHandler := p.Clusters.Middleware(nil)
 	handler := jrpc.Handler(rootJrpcHandler)
@@ -184,10 +155,7 @@ func New(p Params) (r Result, err error) {
 	serverHandler := codecs.HttpWebsocketHandler(handler, nil)
 	// mount the http server
 	r.Route = func(r chi.Router) {
-		r.Use(otelchi.Middleware("venn", otelchi.WithChiRoutes(r), otelchi.WithFilter(
-			func(r *http.Request) bool {
-				return r.Header.Get("upgrade") == ""
-			})))
+		r.Use(vtrace.ExtractContext)
 
 		for _, chain := range p.Chains {
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

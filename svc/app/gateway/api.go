@@ -12,13 +12,10 @@ import (
 
 	"go4.org/netipx"
 
-	"github.com/gfx-labs/utilgo/gotel"
+	"github.com/gfx-labs/venn/lib/vtrace"
 	"github.com/redis/rueidis"
 	"github.com/redis/rueidis/rueidislimiter"
-	"github.com/riandyrn/otelchi"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/gfx-labs/jrpc"
@@ -56,7 +53,7 @@ type Params struct {
 
 	// head following for even faster access to the latest block.
 
-	TraceProvider *gotel.TraceProvider `optional:"true"`
+	TraceProvider *vtrace.TraceProvider `optional:"true"`
 }
 
 type Result struct {
@@ -141,28 +138,10 @@ func New(p Params) (r Result, err error) {
 	})
 
 	// tracing
-	mux.Use(func(next jrpc.Handler) jrpc.Handler {
-		tracer := otel.Tracer("jrpc")
-		fn := jrpc.HandlerFunc(func(w jsonrpc.ResponseWriter, req *jsonrpc.Request) {
-			path, _ := subctx.GetEndpointPath(req.Context())
-			ctx, span := tracer.Start(req.Context(), req.Method,
-				trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(
-					attribute.String("method", req.Method),
-					attribute.String("params", string(req.Params)),
-					attribute.String("path", path)))
-			defer span.End()
-			ew := &jrpcjrpcutil.ErrorRecorder{
-				ResponseWriter: w,
-			}
-			// execute next http handler
-			next.ServeRPC(w, req.WithContext(ctx))
-			if err := ew.Error(); err != nil {
-				span.SetStatus(codes.Error, fmt.Sprintf("error: %s", err))
-				span.RecordError(err)
-			}
-		})
-		return fn
-	})
+	mux.Use(vtrace.RPCMiddleware(func(req *jsonrpc.Request) []attribute.KeyValue {
+		path, _ := subctx.GetEndpointPath(req.Context())
+		return []attribute.KeyValue{attribute.String("path", path)}
+	}))
 
 	mux.Use(ratelimit.WithIdentifier(func(r *jrpc.Request) (*ratelimit.Identifier, error) {
 		endpoint, err := subctx.GetEndpointSpec(r.Context())
@@ -432,10 +411,7 @@ func New(p Params) (r Result, err error) {
 				h.ServeHTTP(w, r)
 			})
 		})
-		r.Use(otelchi.Middleware("gateway", otelchi.WithChiRoutes(r), otelchi.WithFilter(
-			func(r *http.Request) bool {
-				return r.Header.Get("upgrade") == ""
-			})))
+		r.Use(vtrace.ExtractContext)
 		for from, to := range p.Endpoint.Paths {
 			r.Mount("/"+from, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// add the endpoint spec and target here!

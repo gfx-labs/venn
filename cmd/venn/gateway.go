@@ -6,8 +6,8 @@ import (
 
 	"github.com/gfx-labs/jrpc/contrib/extension/subscription"
 	"github.com/gfx-labs/utilgo/fxplus"
-	"github.com/gfx-labs/utilgo/gotel"
 	"github.com/gfx-labs/venn/lib/config"
+	"github.com/gfx-labs/venn/lib/vtrace"
 	"github.com/gfx-labs/venn/svc/app/gateway"
 	"github.com/gfx-labs/venn/svc/gateway/quarks/telemetry"
 	"github.com/gfx-labs/venn/svc/gateway/services/gnat"
@@ -54,7 +54,7 @@ func (o *StartGateway) Run() error {
 		),
 		// OTEL tracing
 		fx.Provide(
-			gotel.NewTraceProvider,
+			vtrace.NewTraceProvider,
 		),
 		fx.Invoke(
 			func(*prom.Prometheus) {},
