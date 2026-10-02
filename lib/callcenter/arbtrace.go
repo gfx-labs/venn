@@ -1,47 +1,87 @@
 package callcenter
 
 import (
+	"encoding/json"
+
 	"github.com/gfx-labs/jrpc"
+
+	"github.com/gfx-labs/venn/lib/ethtypes"
 )
 
-// ArbitrumChainIds are the Nitro chains that serve the parity trace namespace
-// under an arbtrace_ prefix instead of trace_.
-var ArbitrumChainIds = map[int]bool{
-	42161:  true, // arbitrum one
-	42170:  true, // arbitrum nova
-	421614: true, // arbitrum sepolia
-}
+// ArbitrumOneChainId is the only Arbitrum chain with pre-Nitro history. Nova
+// and Sepolia launched on Nitro, so they have no blocks arbtrace_ can serve.
+const ArbitrumOneChainId = 42161
 
-// arbTraceAliases maps each parity trace method onto its Nitro spelling.
+// NitroGenesisBlock is the first Arbitrum One block produced by Nitro.
 //
-// Only the method name differs. Params and results are the same shapes, so a
-// caller written against trace_ needs no knowledge of the rename. Methods
-// absent here (trace_rawTransaction, trace_replaceBlockTransactions) have no
-// arbtrace_ counterpart and are left alone to fail as unsupported rather than
-// be rewritten into something that does not exist.
+// Blocks below it come from the classic chain, which nodes trace through the
+// arbtrace_ namespace. From this block on, arbtrace_ fails with "method handler
+// crashed", so trace_ calls for Nitro blocks are passed through unchanged.
+const NitroGenesisBlock = 22207817
+
+// arbTraceAliases maps each block-addressable parity trace method onto its
+// classic spelling. Methods addressed by transaction hash are absent: their
+// block is unknown without a lookup, so they are never rewritten.
 var arbTraceAliases = map[string]string{
-	"trace_block":             "arbtrace_block",
-	"trace_call":              "arbtrace_call",
-	"trace_callMany":          "arbtrace_callMany",
-	"trace_filter":            "arbtrace_filter",
-	"trace_get":               "arbtrace_get",
-	"trace_replayTransaction": "arbtrace_replayTransaction",
-	"trace_transaction":       "arbtrace_transaction",
+	"trace_block":    "arbtrace_block",
+	"trace_call":     "arbtrace_call",
+	"trace_callMany": "arbtrace_callMany",
+	"trace_filter":   "arbtrace_filter",
 }
 
-// ArbTrace rewrites parity trace_ calls to the arbtrace_ namespace that
-// Arbitrum Nitro serves them under.
-//
-// This is a naming difference, not a behavioural one: which blocks a node can
-// trace is the node's business, so an upstream that gains real trace_ support
-// should be opted out with disable_arbtrace rather than special cased here.
+// ArbTrace rewrites parity trace_ calls to arbtrace_ when they target only
+// pre-Nitro Arbitrum One blocks. Params and results keep the same shapes.
 type ArbTrace struct{}
 
 func (T *ArbTrace) Middleware(next jrpc.Handler) jrpc.Handler {
 	return jrpc.HandlerFunc(func(w jrpc.ResponseWriter, r *jrpc.Request) {
-		if alias, ok := arbTraceAliases[r.Method]; ok {
+		if alias, ok := arbTraceAliases[r.Method]; ok && preNitro(r.Method, r.Params) {
 			r.Method = alias
 		}
 		next.ServeRPC(w, r)
 	})
+}
+
+// preNitro reports whether every block the call touches is below
+// NitroGenesisBlock. Tags such as latest resolve to Nitro blocks, and anything
+// unparseable is treated as Nitro so the request passes through untouched.
+func preNitro(method string, raw json.RawMessage) bool {
+	var params []json.RawMessage
+	if err := json.Unmarshal(raw, &params); err != nil || len(params) == 0 {
+		return false
+	}
+	switch method {
+	case "trace_filter":
+		var filter struct {
+			ToBlock *ethtypes.BlockNumber `json:"toBlock"`
+		}
+		if err := json.Unmarshal(params[0], &filter); err != nil || filter.ToBlock == nil {
+			// A missing toBlock defaults to latest.
+			return false
+		}
+		return classic(*filter.ToBlock)
+	case "trace_block":
+		return blockParam(params[0])
+	case "trace_call":
+		// trace_call(call, traceTypes, block); block defaults to latest.
+		return len(params) >= 3 && blockParam(params[2])
+	case "trace_callMany":
+		// trace_callMany(calls, block); block defaults to latest.
+		return len(params) >= 2 && blockParam(params[1])
+	}
+	return false
+}
+
+func blockParam(raw json.RawMessage) bool {
+	var bn ethtypes.BlockNumber
+	if err := json.Unmarshal(raw, &bn); err != nil {
+		return false
+	}
+	return classic(bn)
+}
+
+// classic reports whether bn is a concrete block below Nitro genesis. Block 0
+// is the earliest tag, which is classic history.
+func classic(bn ethtypes.BlockNumber) bool {
+	return bn >= ethtypes.EarliestBlockNumber && bn < NitroGenesisBlock
 }

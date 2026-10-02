@@ -157,10 +157,9 @@ type Remote struct {
 	SendDataAndInput bool `json:"send_data_and_input,omitempty"`
 	MaxBlockLookback int  `json:"max_block_lookback,omitempty"`
 
-	// DisableArbtrace opts an Arbitrum remote out of the trace_ -> arbtrace_
-	// rewrite. Nitro serves the parity trace namespace under arbtrace_, so the
-	// rewrite is on by default for Arbitrum chains. Set this when an upstream
-	// serves real trace_ methods and the rename would break it.
+	// DisableArbtrace opts an Arbitrum One remote out of rewriting trace_ to
+	// arbtrace_ for pre-Nitro blocks, for upstreams that serve classic history
+	// under trace_ directly.
 	DisableArbtrace bool `json:"disable_arbtrace,omitempty"`
 }
 
