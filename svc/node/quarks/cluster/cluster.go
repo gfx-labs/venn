@@ -121,10 +121,9 @@ func NewRemoteTarget(cfg *config.Remote, chain *config.Chain, log *slog.Logger, 
 
 	mw.Filterer = newRemoteFilterer(cfg.ParsedFilters)
 
-	// Arbitrum Nitro serves the parity trace namespace as arbtrace_, so trace_
-	// calls are rewritten for it by default. An upstream that grows real trace_
-	// support opts out with disable_arbtrace rather than being special cased.
-	if callcenter.ArbitrumChainIds[chain.Id] && !cfg.DisableArbtrace {
+	// Arbitrum One serves pre-Nitro traces only as arbtrace_, so trace_ calls
+	// for those blocks are rewritten. Nitro blocks pass through unchanged.
+	if chain.Id == callcenter.ArbitrumOneChainId && !cfg.DisableArbtrace {
 		mw.ArbTrace = &callcenter.ArbTrace{}
 	}
 
